@@ -35,6 +35,10 @@ module.exports = (sequelize) => {
       type: DataTypes.JSONB,
       allowNull: true,
     },
+    metadata: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
     shared: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

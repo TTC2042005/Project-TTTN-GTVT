@@ -59,3 +59,18 @@ The system is composed of four major domains:
 - Containerized services via Docker Compose.
 - Production deployment can target Azure App Service, Azure Container Instances, or Kubernetes.
 - Use managed PostgreSQL, Elasticsearch, and blob storage in production.
+
+## Implementation boundary (reviewed 2026-09-29)
+
+The component list above describes the intended architecture, not proof that every provider is connected. The current repository implements PostgreSQL/Sequelize, Express REST routes, a Next.js UI, local/S3-compatible upload code, JWT, heuristic recommendation/image metrics, and in-process realtime events. Elasticsearch is started by Docker Compose but is not yet wired into the application search/indexing path. AI embeddings currently use database document rows and in-process cosine scoring rather than a production vector index. OAuth, production email, signed private media URLs, CI/CD, centralized observability, and tested cloud deployment remain planned work.
+
+### Order and payment trust boundaries
+
+- Lab order totals and item prices must be resolved by the API from the selected lab's service/package records; browser-submitted prices are not authoritative.
+- Marketplace orders are limited to persisted listings. Order creation and stock decrement share a database transaction and lock the product row.
+- Stripe checkout completion must be accepted only after verifying `Stripe-Signature` over the raw request body with `STRIPE_WEBHOOK_SECRET`. Keep the order pending until that provider event or an approved manual-payment verification is recorded.
+- Order lifecycle events are currently process-local. They work for a single backend instance; multi-instance deployments need a shared broker (for example Redis/Postgres notifications) so SSE updates reach clients connected to any instance.
+
+### Release caveats
+
+`sequelize.sync({ alter: true })` is a development convenience, not a production migration strategy. Replace it with versioned migrations before rollout, and verify existing enum/data changes and backups. Payment, storage, security, concurrency, and recovery behavior still require integration tests against isolated services before production use.

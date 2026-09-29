@@ -3,8 +3,15 @@ const { Op, fn, col, literal } = require('sequelize');
 const router = express.Router();
 const { FilmLab, LabService, LabPackage, Order, OrderItem, User } = require('../models');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { broadcastOrderUpdate } = require('../services/orderEventService');
 
-const statusFlow = ['new', 'received', 'processing', 'scanning', 'completed', 'delivered'];
+const allowedTransitions = {
+  pending: ['received', 'processing', 'cancelled'],
+  received: ['processing', 'cancelled'],
+  processing: ['scanning', 'cancelled'],
+  scanning: ['completed', 'cancelled'],
+  completed: ['delivered'],
+};
 
 router.get('/dashboard', authenticateToken, authorizeRoles('lab_owner', 'admin'), async (req, res) => {
   try {
@@ -104,12 +111,11 @@ router.patch('/orders/:id/status', authenticateToken, authorizeRoles('lab_owner'
     }
 
     const { status } = req.body;
-    if (!statusFlow.includes(status)) {
-      return res.status(400).json({ error: `Invalid status. Valid values: ${statusFlow.join(', ')}` });
-    }
+    if (!allowedTransitions[order.status]?.includes(status)) return res.status(409).json({ error: 'Invalid order status transition' });
 
     order.status = status;
     await order.save();
+    broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status, updatedAt: order.updatedAt });
     res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });

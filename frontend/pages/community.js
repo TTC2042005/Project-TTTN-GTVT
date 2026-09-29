@@ -66,19 +66,28 @@ export default function Community() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await fetchJson(`/api/community/posts?q=${encodeURIComponent(query)}`);
-        setPosts(response);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+    const controller = new AbortController();
+    const debounceTimer = window.setTimeout(() => {
+      async function load() {
+        setLoading(true);
+        setError('');
+        try {
+          const response = await fetchJson(`/api/community/posts?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+          setPosts(response);
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+          setError(err.message);
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
+        }
       }
-    }
-    load();
+      load();
+    }, 300);
+
+    return () => {
+      window.clearTimeout(debounceTimer);
+      controller.abort();
+    };
   }, [query]);
 
   return (
@@ -132,11 +141,9 @@ export default function Community() {
               </article>
             ))}
           </div>
-
           <div className="latest-posts-card">
             <div className="section-heading">
               <h2>Latest community posts</h2>
-              <span>Newest updates from the forum.</span>
             </div>
 
             {loading ? (

@@ -16,7 +16,7 @@ module.exports = (sequelize) => {
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('pending', 'processing', 'completed', 'cancelled'),
+      type: DataTypes.ENUM('pending', 'pending_verification', 'payment_rejected', 'received', 'processing', 'scanning', 'completed', 'delivered', 'cancelled'),
       allowNull: false,
       defaultValue: 'pending',
     },
@@ -27,6 +27,15 @@ module.exports = (sequelize) => {
     },
     paymentMethod: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    currency: {
+      type: DataTypes.STRING(3),
+      allowNull: false,
+      defaultValue: 'VND',
+    },
+    proofUploadId: {
+      type: DataTypes.UUID,
       allowNull: true,
     },
     requestedAt: {

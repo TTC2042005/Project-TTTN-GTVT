@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import fs from 'fs';
-import path from 'path';
 import Link from 'next/link';
 import { fetchJson } from '../lib/api';
 
@@ -88,7 +86,7 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [error, setError] = useState('');
-  const [staticCameras, setStaticCameras] = useState(propsStaticCameras || []);
+  const [staticShowcase, setStaticShowcase] = useState(propsStaticCameras || []);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -106,23 +104,37 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
     try {
       let response = await fetchJson(`/api/marketplace/listings${buildQuery()}`);
 
-      // If browsing Cameras or All Categories, include static images from public/Cameras
-      if (category === 'Cameras' || category === 'All Categories') {
+      // Include catalog images from public folders when browsing their category.
+      if (category === 'Cameras' || category === 'Lenses' || category === 'Film' || category === 'All Categories') {
         try {
-          const staticItems = await fetchJson('/api/static-cameras');
-          // If there's a query, filter static items client-side
+          const catalogPaths = [];
+          if (category === 'Cameras' || category === 'All Categories') catalogPaths.push('/api/static-cameras');
+          if (category === 'Lenses' || category === 'All Categories') catalogPaths.push('/api/static-lenses');
+          if (category === 'Film' || category === 'All Categories') catalogPaths.push('/api/static-films');
+          const catalogs = await Promise.all(catalogPaths.map((catalogPath) => fetchJson(catalogPath)));
+          const staticItems = catalogs.flat();
+
           const q = query && query.trim().toLowerCase();
-          const filteredStatic = q ? staticItems.filter((it) => it.title.toLowerCase().includes(q)) : staticItems;
-          // Merge DB response and static items (avoid duplicates by title)
+          const filteredStatic = staticItems.filter((it) => {
+            const matchesQuery = !q || it.title.toLowerCase().includes(q);
+            const matchesMin = !minPrice || Number(it.price) >= Number(minPrice);
+            const matchesMax = !maxPrice || Number(it.price) <= Number(maxPrice);
+            return matchesQuery && matchesMin && matchesMax;
+          });
+
           const existingTitles = new Set(response.map((p) => (p.title || '').toLowerCase()));
           const merged = [...response];
           for (const it of filteredStatic) {
             if (!existingTitles.has((it.title || '').toLowerCase())) merged.push(it);
           }
           response = merged;
+          setStaticShowcase(filteredStatic);
         } catch (err) {
           // ignore static items if fetch fails
         }
+      }
+      if (category !== 'Cameras' && category !== 'Lenses' && category !== 'Film' && category !== 'All Categories') {
+        setStaticShowcase([]);
       }
       // If query present and not using server-side q param, filter client-side as fallback
       if (query && category !== 'All Categories') {
@@ -139,17 +151,6 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
 
   useEffect(() => {
     loadProducts();
-    // load static gallery separately so images always display if not provided by server
-    if (!propsStaticCameras || propsStaticCameras.length === 0) {
-      (async () => {
-        try {
-          const list = await fetchJson('/api/static-cameras');
-          setStaticCameras(list);
-        } catch (e) {
-          // ignore
-        }
-      })();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
@@ -191,29 +192,29 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
           ))}
       </section>
 
-        {staticCameras.length > 0 && (
+        {staticShowcase.length > 0 && (
           <section className="marketplace-cameras container">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">Featured gear</span>
-                <h2>Cameras Collection</h2>
+                <h2>{category === 'Lenses' ? 'Lenses Collection' : category === 'Film' ? 'Film Collection' : 'Cameras Collection'}</h2>
               </div>
-              <p>Browse carefully selected cameras ready for their next roll.</p>
+              <p>{category === 'Film' ? 'Choose a classic film and get your $10 ticket.' : category === 'Lenses' ? 'Browse selected lenses for your next shoot.' : 'Browse carefully selected cameras ready for their next roll.'}</p>
             </div>
             <div className="camera-grid">
-              {staticCameras.map((cam) => (
-                <div key={cam.id} className="camera-card">
+              {staticShowcase.map((item) => (
+                <div key={item.id} className="camera-card">
                   <div className="camera-image-wrap">
-                    <img src={cam.imageUrl} alt={cam.title} />
-                    <span className="listing-badge">{cam.condition || 'Used'}</span>
+                    <img src={item.imageUrl} alt={item.title} loading="lazy" decoding="async" />
+                    <span className="listing-badge">{item.condition || 'Used'}</span>
                   </div>
                   <div className="camera-card-body">
                     <div>
-                      <span className="camera-category">{cam.category || 'Cameras'}</span>
-                      <h3>{cam.title}</h3>
+                      <span className="camera-category">{item.category || 'Cameras'}</span>
+                      <h3>{item.title}</h3>
                     </div>
                     <div className="camera-card-footer">
-                      <strong>{formatPrice(cam.price || cameraPrices[cam.title])}</strong>
+                      <strong>{formatPrice(item.price || cameraPrices[item.title])}</strong>
                       <span>In stock</span>
                     </div>
                   </div>

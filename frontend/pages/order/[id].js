@@ -36,20 +36,61 @@ export default function OrderDetailsPage() {
 
   useEffect(() => {
     if (!id || !getToken()) return;
-    const eventSource = new EventSource(`${API_BASE}/api/orders/${id}/live`, {
-      withCredentials: true,
-    });
+    const controller = new AbortController();
+    let retryTimer;
 
-    eventSource.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
-      setOrder((current) => current ? { ...current, status: payload.status || current.status } : current);
+    async function connectToOrderUpdates() {
+      let retryDelay = 1000;
+      while (!controller.signal.aborted) {
+        try {
+          const response = await fetch(`${API_BASE}/api/orders/${id}/live`, {
+            headers: authHeaders(),
+            signal: controller.signal,
+          });
+          if (!response.ok || !response.body) {
+            if ([401, 403, 404].includes(response.status)) return;
+            throw new Error('Order update stream unavailable');
+          }
+
+          retryDelay = 1000;
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (!controller.signal.aborted) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split('\n\n');
+            buffer = events.pop() || '';
+            for (const eventText of events) {
+              const dataLine = eventText.split('\n').find((line) => line.startsWith('data:'));
+              if (!dataLine) continue;
+              try {
+                const payload = JSON.parse(dataLine.slice(5).trim());
+                setOrder((current) => current ? { ...current, status: payload.status || current.status } : current);
+              } catch {
+                // Ignore malformed SSE frames and keep the stream alive.
+              }
+            }
+          }
+        } catch (streamError) {
+          if (controller.signal.aborted) return;
+        }
+
+        if (!controller.signal.aborted) {
+          await new Promise((resolve) => {
+            retryTimer = window.setTimeout(resolve, retryDelay);
+          });
+          retryDelay = Math.min(retryDelay * 2, 15000);
+        }
+      }
+    }
+
+    connectToOrderUpdates();
+    return () => {
+      controller.abort();
+      window.clearTimeout(retryTimer);
     };
-
-    eventSource.onerror = () => {
-      eventSource.close();
-    };
-
-    return () => eventSource.close();
   }, [id]);
 
   if (!getToken()) {

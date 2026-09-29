@@ -69,14 +69,32 @@ router.post('/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid event type' });
     }
 
-    const target = eventType === 'workshop' ? await Workshop.findByPk(eventId) : await Photowalk.findByPk(eventId);
-    if (!target) return res.status(404).json({ error: 'Event not found' });
-
-    const existing = await EventRegistration.findOne({ where: { eventType, eventId, userId: req.user.id } });
-    if (existing) return res.status(400).json({ error: 'Already registered' });
-
-    const registration = await EventRegistration.create({ eventType, eventId, userId: req.user.id, status: 'registered' });
-    res.status(201).json(registration);
+    const EventModel = eventType === 'workshop' ? Workshop : Photowalk;
+    const dbTransaction = await EventRegistration.sequelize.transaction();
+    try {
+      const target = await EventModel.findByPk(eventId, { transaction: dbTransaction, lock: dbTransaction.LOCK.UPDATE });
+      if (!target || !target.publishedAt) {
+        await dbTransaction.rollback();
+        return res.status(404).json({ error: 'Published event not found' });
+      }
+      const existing = await EventRegistration.findOne({ where: { eventType, eventId, userId: req.user.id }, transaction: dbTransaction });
+      if (existing) {
+        await dbTransaction.rollback();
+        return res.status(409).json({ error: 'Already registered' });
+      }
+      const activeCount = await EventRegistration.count({ where: { eventType, eventId, status: { [Op.in]: ['registered', 'checked_in'] } }, transaction: dbTransaction });
+      if (activeCount >= target.capacity) {
+        await dbTransaction.rollback();
+        return res.status(409).json({ error: 'Event is full' });
+      }
+      const registration = await EventRegistration.create({ eventType, eventId, userId: req.user.id, status: 'registered' }, { transaction: dbTransaction });
+      await dbTransaction.commit();
+      res.status(201).json(registration);
+    } catch (error) {
+      await dbTransaction.rollback();
+      if (error.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ error: 'Already registered' });
+      throw error;
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

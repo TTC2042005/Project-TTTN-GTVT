@@ -1,5 +1,6 @@
 const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
+const path = require('path');
 const UserModel = require('./user');
 const FilmLabModel = require('./filmLab');
 const LabServiceModel = require('./labService');
@@ -20,7 +21,7 @@ const PhotowalkModel = require('./photowalk');
 const EventRegistrationModel = require('./eventRegistration');
 const RagDocumentModel = require('./ragDocument');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const sequelize = new Sequelize(process.env.DATABASE_URL || 'postgres://film_lab_user:film_lab_pass@localhost:5432/film_lab_db', {
   dialect: 'postgres',

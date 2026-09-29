@@ -14,14 +14,18 @@ router.post('/register', async (req, res) => {
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email and password are required' });
     }
+    if (!['photographer', 'seller', 'lab_owner'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid account role' });
+    }
 
-    const existingUser = await User.findOne({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(409).json({ error: 'User already exists' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ email, passwordHash, name, role, phone, avatarUrl });
+    const user = await User.create({ email: normalizedEmail, passwordHash, name: String(name).trim(), role, phone, avatarUrl });
 
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, role: user.role }, token });
@@ -37,7 +41,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: String(email).trim().toLowerCase() } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

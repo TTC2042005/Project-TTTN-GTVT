@@ -22,8 +22,8 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
+app.use('/api/payments/webhook/stripe', express.raw({ type: 'application/json' }));
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Film Lab backend API is running' });

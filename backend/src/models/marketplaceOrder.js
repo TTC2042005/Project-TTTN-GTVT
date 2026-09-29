@@ -13,11 +13,11 @@ module.exports = (sequelize) => {
     },
     sellerId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
     },
     productId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
     },
     quantity: {
       type: DataTypes.INTEGER,
@@ -40,6 +40,10 @@ module.exports = (sequelize) => {
     },
     shippingTracking: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    proofUploadId: {
+      type: DataTypes.UUID,
       allowNull: true,
     },
   }, {

@@ -24,6 +24,35 @@ export default function Labs() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sortBy, setSortBy] = useState('rating');
+
+  const getLowestPrice = (lab) => {
+    const prices = [...(lab.services || []), ...(lab.packages || [])]
+      .map((item) => Number(item.price))
+      .filter((price) => Number.isFinite(price) && price >= 0);
+    return prices.length ? Math.min(...prices) : Number.POSITIVE_INFINITY;
+  };
+  const getHighestPrice = (lab) => {
+    const prices = [...(lab.services || []), ...(lab.packages || [])]
+      .map((item) => Number(item.price))
+      .filter((price) => Number.isFinite(price) && price >= 0);
+    return prices.length ? Math.max(...prices) : Number.POSITIVE_INFINITY;
+  };
+
+  const sortedLabs = [...labs].sort((a, b) => {
+    if (sortBy === 'price-asc' || sortBy === 'price-desc') {
+      const getPrice = sortBy === 'price-asc' ? getLowestPrice : getHighestPrice;
+      const priceA = getPrice(a);
+      const priceB = getPrice(b);
+      const unknownLast = Number.isFinite(priceA) ? (Number.isFinite(priceB) ? 0 : -1) : (Number.isFinite(priceB) ? 1 : 0);
+      if (unknownLast) return unknownLast;
+      const priceOrder = sortBy === 'price-asc' ? priceA - priceB : priceB - priceA;
+      return priceOrder || Number(b.rating || 0) - Number(a.rating || 0);
+    }
+    if (sortBy === 'name') return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
+    if (sortBy === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    return Number(b.rating || 0) - Number(a.rating || 0) || getLowestPrice(a) - getLowestPrice(b);
+  });
 
   const buildQueryString = () => {
     const params = new URLSearchParams();
@@ -66,10 +95,14 @@ export default function Labs() {
   };
 
   const clearFilters = () => {
-    setFilters({ q: '', city: '', country: '', serviceType: '', minPrice: '', maxPrice: '', rating: '' });
+    const emptyFilters = { q: '', city: '', country: '', serviceType: '', minPrice: '', maxPrice: '', rating: '' };
+    setFilters(emptyFilters);
     setError(null);
-    setLabs([]);
-    setTimeout(loadLabs, 0);
+    setLoading(true);
+    fetchJson('/api/film-labs')
+      .then(setLabs)
+      .catch((err) => setError(err.message || 'Unable to load film labs'))
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -155,10 +188,19 @@ export default function Labs() {
         <div className="labs-main">
           <div className="labs-list-header">
             <div>
-              <h2>Trending Film Labs</h2>
+              <h2>Film Labs</h2>
               <p>Curated film labs with top reviews, fast turnaround, and helpful service details.</p>
             </div>
-            <Link href="/labs" className="button secondary">Reset</Link>
+            <label className="labs-sort-control">
+              <span>Sort by</span>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="select" aria-label="Sort Film Labs">
+                <option value="rating">Highest rated</option>
+                <option value="price-asc">Lowest price</option>
+                <option value="price-desc">Highest price</option>
+                <option value="newest">Recently added</option>
+                <option value="name">Name A–Z</option>
+              </select>
+            </label>
           </div>
 
           {loading ? (
@@ -170,13 +212,13 @@ export default function Labs() {
               {labs.length === 0 ? (
                 <div className="lab-list-empty">No film labs found for your search.</div>
               ) : (
-                labs.map((lab) => (
+                sortedLabs.map((lab) => (
                   <article key={lab.id} className="lab-card">
-                    <img src={lab.photoUrl || '/film-camera.jpg'} alt={lab.name} />
+                    <img src={lab.photoUrl || '/film-camera.jpg'} alt={lab.name} loading="lazy" decoding="async" />
                     <div className="lab-card-content">
                       <div className="lab-card-title">
                         <h3>{lab.name}</h3>
-                        <span className="lab-price">{lab.priceRange || 'Contact lab'}</span>
+                        <span className="lab-price">{lab.priceRange || (Number.isFinite(getLowestPrice(lab)) ? `From ${getLowestPrice(lab).toLocaleString('vi-VN')}đ` : 'Contact lab')}</span>
                       </div>
                       <div className="lab-meta-row">
                         <span>⭐ {lab.rating?.toFixed(1) || '—'}</span>
@@ -245,7 +287,10 @@ export default function Labs() {
           <strong>Are you a lab owner?</strong>
           <p>List your lab and reach thousands of film photographers who book services every week.</p>
         </div>
-        <button className="button">List Your Lab</button>
+        <div className="labs-callout-actions">
+          <Link href="/upload?tool=film-review" className="button secondary">Upload & review a photo</Link>
+          <button className="button">List Your Lab</button>
+        </div>
       </section>
     </main>
   );

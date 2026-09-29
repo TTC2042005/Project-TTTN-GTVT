@@ -184,6 +184,7 @@ CREATE TABLE marketplace_orders (
   status marketplace_order_status_enum NOT NULL DEFAULT 'pending',
   payment_method TEXT,
   shipping_tracking TEXT,
+  proof_upload_id UUID REFERENCES uploads(id) ON DELETE SET NULL,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

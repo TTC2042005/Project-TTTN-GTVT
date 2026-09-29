@@ -26,7 +26,7 @@ async function createCheckoutSession({ orderId, amount, currency = 'usd', succes
           product_data: {
             name: `Film Lab Order ${orderId}`,
           },
-          unit_amount: Math.round(amount * 100),
+          unit_amount: currency.toLowerCase() === 'vnd' ? Math.round(amount) : Math.round(amount * 100),
         },
         quantity: 1,
       },

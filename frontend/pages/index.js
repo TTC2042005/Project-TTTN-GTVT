@@ -22,6 +22,7 @@ export default function Home() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [labs, setLabs] = useState([]);
+  const [roomFilms, setRoomFilms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -40,6 +41,20 @@ export default function Home() {
     }
 
     loadLabs();
+  }, []);
+
+  useEffect(() => {
+    async function loadRoomFilms() {
+      try {
+        const response = await fetch('/api/static-room-films');
+        if (!response.ok) throw new Error('Could not load room film images');
+        setRoomFilms(await response.json());
+      } catch (err) {
+        setRoomFilms([]);
+      }
+    }
+
+    loadRoomFilms();
   }, []);
 
   const trendingLabs = useMemo(() => {
@@ -101,6 +116,25 @@ export default function Home() {
         </div>
       </section>
 
+      {roomFilms.length > 0 && (
+        <section className="room-films-section container">
+          <div className="section-heading">
+            <div>
+              <span className="hero-eyebrow">Explore our spaces</span>
+              <h2>Film rooms around Vietnam</h2>
+            </div>
+          </div>
+          <div className="room-films-grid">
+            {roomFilms.map((roomFilm) => (
+              <figure key={roomFilm.id} className="room-film-card">
+                <img src={roomFilm.imageUrl} alt={roomFilm.title} loading="lazy" decoding="async" />
+                <figcaption>{roomFilm.title}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="home-cards container">
         {features.map((feature) => (
           <div key={feature.title} className="home-card feature-card">
@@ -124,7 +158,7 @@ export default function Home() {
             ) : trendingLabs.length > 0 ? (
               trendingLabs.map((lab) => (
                 <article key={lab.id} className="trending-lab-card">
-                  <img src={lab.image} alt={lab.name} />
+                  <img src={lab.image} alt={lab.name} loading="lazy" decoding="async" />
                   <div>
                     <h3>{lab.name}</h3>
                     <div className="lab-meta">

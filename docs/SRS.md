@@ -8,6 +8,8 @@
 
 > Tài liệu này mô tả nền tảng Film Lab Ecosystem dựa trên mã nguồn hiện tại. Các năng lực đã có trong prototype được ghi là **Hiện có**; các năng lực phụ thuộc dịch vụ ngoài hoặc còn placeholder được ghi là **Dự kiến**.
 
+> **Đánh giá triển khai 2026-09-29:** repository có nhiều màn hình và API cho các miền chính nhưng chưa hoàn tất toàn bộ yêu cầu, chưa đủ bằng chứng kiểm thử để kết luận nghiệm thu/production. Các cập nhật trong lần rà soát này chặn đăng ký tự cấp admin, lấy giá order từ dữ liệu lab ở backend, ràng buộc actor/state order, xác minh chữ ký Stripe webhook, khóa stock khi tạo marketplace order, giới hạn upload ảnh và khóa đăng ký event theo capacity. Các tích hợp/provider và mục chưa hoàn tất vẫn được nêu trong README và phần Future Enhancements; đặc tả yêu cầu không đồng nghĩa tính năng đã được nghiệm thu.
+
 ---
 
 ## 1. Introduction

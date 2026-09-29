@@ -27,5 +27,6 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'event_registrations',
     timestamps: true,
+    indexes: [{ unique: true, fields: ['userId', 'eventType', 'eventId'] }],
   });
 };
