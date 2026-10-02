@@ -1,0 +1,54 @@
+@startuml FilmLab_Admin_Reporting
+title Administration and Reporting Use Cases
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor Admin
+actor "Lab Owner" as LabOwner
+
+rectangle "Film Lab Ecosystem - Administration and Reports" {
+  usecase "View Admin Overview" as UC_Overview
+  usecase "View Global Orders" as UC_GlobalOrders
+  usecase "View Lab Dashboard" as UC_LabDashboard
+  usecase "View Lab Orders" as UC_LabOrders
+  usecase "View Customers and Order History" as UC_Customers
+  usecase "View Operational Reports" as UC_Reports
+  usecase "Select Report Period\n(daily / monthly)" as UC_Period
+  usecase "Aggregate Revenue and Order Count" as UC_Aggregate
+}
+
+Admin --> UC_Overview
+Admin --> UC_GlobalOrders
+Admin --> UC_LabDashboard
+Admin --> UC_LabOrders
+Admin --> UC_Customers
+Admin --> UC_Reports
+LabOwner --> UC_LabDashboard
+LabOwner --> UC_LabOrders
+LabOwner --> UC_Customers
+LabOwner --> UC_Reports
+
+UC_Reports ..> UC_Period : <<include>>
+UC_Reports ..> UC_Aggregate : <<include>>
+
+note right of UC_Reports
+  Route lab-management/reports có
+  tổng doanh thu và số đơn theo ngày
+  hoặc tháng. Lab owner chỉ xem dữ liệu
+  thuộc lab của mình; admin xem tổng hợp.
+end note
+
+note bottom of UC_Overview
+  Admin endpoints hiện có overview
+  và orders. Quản lý user, moderation,
+  audit log, export và analytics nâng cao
+  chưa thể hiện đầy đủ trong API.
+end note
+
+@enduml

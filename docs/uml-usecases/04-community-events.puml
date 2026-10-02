@@ -1,0 +1,70 @@
+@startuml FilmLab_Community_Events
+title Community and Events Use Cases
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor Guest
+actor "Authenticated User" as User
+actor "Event Organizer" as Organizer
+
+rectangle "Film Lab Ecosystem - Community and Events" {
+  usecase "Browse Public Posts" as UC_BrowsePosts
+  usecase "Search Posts" as UC_SearchPosts
+  usecase "View Post Details" as UC_ViewPost
+  usecase "Create Post" as UC_CreatePost
+  usecase "Set Post Visibility\n(public / private / draft)" as UC_Visibility
+  usecase "Comment on Post" as UC_Comment
+  usecase "Browse Published Workshops" as UC_Workshops
+  usecase "Browse Published Photowalks" as UC_Photowalks
+  usecase "Create Workshop / Photowalk" as UC_CreateEvent
+  usecase "Publish Event" as UC_Publish
+  usecase "Register for Event" as UC_Register
+  usecase "Check Event is Published" as UC_Published
+  usecase "Check Duplicate Registration" as UC_Duplicate
+  usecase "Check Capacity" as UC_Capacity
+  usecase "View My Registrations" as UC_MyRegistrations
+  usecase "Check In Registration" as UC_CheckIn
+}
+
+Guest --> UC_BrowsePosts
+Guest --> UC_SearchPosts
+Guest --> UC_ViewPost
+Guest --> UC_Workshops
+Guest --> UC_Photowalks
+User --> UC_BrowsePosts
+User --> UC_SearchPosts
+User --> UC_ViewPost
+User --> UC_CreatePost
+User --> UC_Comment
+User --> UC_CreateEvent
+User --> UC_Register
+User --> UC_MyRegistrations
+User --> UC_CheckIn
+Organizer --> UC_CreateEvent
+Organizer --> UC_Publish
+
+UC_SearchPosts ..> UC_BrowsePosts : <<extend>>
+UC_CreatePost ..> UC_Visibility : <<include>>
+UC_CreateEvent ..> UC_Publish : <<extend>>
+UC_Register ..> UC_Published : <<include>>
+UC_Register ..> UC_Duplicate : <<include>>
+UC_Register ..> UC_Capacity : <<include>>
+
+note right of UC_Register
+  Backend khóa bản ghi event trong
+  database transaction khi kiểm tra
+  đăng ký trùng và số chỗ còn lại.
+end note
+
+note bottom of UC_Comment
+  Kiểm duyệt nội dung, report abuse
+  và moderator role chưa hoàn thiện.
+end note
+
+@enduml

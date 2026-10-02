@@ -1,0 +1,86 @@
+@startuml FilmLab_UseCases_Overview
+title Film Lab Ecosystem - Use Case Overview
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+skinparam rectangle {
+  BorderColor #2D6B65
+  FontColor #24343A
+}
+
+actor Guest
+actor Photographer
+actor "Lab Owner" as LabOwner
+actor Seller
+actor Admin
+actor "Payment Provider" as Payment
+actor "AI Provider" as AIProvider
+actor "Object Storage" as Storage
+
+rectangle "Film Lab Ecosystem" {
+  package "Authentication" {
+    usecase "Register / Login" as Auth
+    usecase "Manage Profile / Logout" as Profile
+  }
+  package "Film Lab" {
+    usecase "Search and View Labs" as BrowseLabs
+    usecase "Book and Track Lab Order" as LabOrder
+    usecase "Operate Lab Dashboard" as LabOps
+  }
+  package "Marketplace" {
+    usecase "Browse and Manage Listings" as Listing
+    usecase "Buy Product and Manage Order" as MarketOrder
+  }
+  package "Community and Events" {
+    usecase "Publish and Discuss Posts" as Community
+    usecase "Create / Join Events" as Events
+  }
+  package "AI and Image" {
+    usecase "Get Recommendations / Search" as AIUse
+    usecase "Ask Chatbot / RAG" as Chat
+    usecase "Upload and Analyze Image" as Image
+  }
+  package "Administration and Reports" {
+    usecase "View Overview and Orders" as AdminOverview
+    usecase "View Operational Reports" as Reports
+  }
+}
+
+Guest --> Auth
+Guest --> BrowseLabs
+Photographer --> Profile
+Photographer --> BrowseLabs
+Photographer --> LabOrder
+Photographer --> MarketOrder
+Photographer --> Community
+Photographer --> Events
+Photographer --> AIUse
+Photographer --> Chat
+Photographer --> Image
+LabOwner --> LabOps
+LabOwner --> Reports
+Seller --> Listing
+Seller --> MarketOrder
+Admin --> AdminOverview
+Admin --> Reports
+Admin --> LabOps
+Admin --> Listing
+Payment ..> LabOrder
+Payment ..> MarketOrder
+AIProvider ..> Chat
+AIProvider ..> AIUse
+Storage ..> Image
+
+note bottom of Reports
+  Lab reports có daily/monthly aggregates.
+  Admin overview/orders có endpoint.
+  Export/analytics nâng cao chưa xác nhận.
+end note
+
+@enduml

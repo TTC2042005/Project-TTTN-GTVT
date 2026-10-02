@@ -1,0 +1,77 @@
+@startuml FilmLab_Booking_Operations
+title Film Lab Search, Booking and Operations
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor Guest
+actor Photographer
+actor "Lab Owner" as LabOwner
+actor Admin
+actor "Payment Provider" as Payment
+actor "Order Event Stream (SSE)" as SSE
+
+rectangle "Film Lab Ecosystem - Film Lab" {
+  usecase "Search Film Labs" as UC_Search
+  usecase "View Lab Details" as UC_Details
+  usecase "Filter by Location, Service,\nPrice and Rating" as UC_Filter
+  usecase "Create Booking" as UC_Booking
+  usecase "Validate Lab and Selected Items" as UC_ValidateItems
+  usecase "Calculate Total from\nDatabase Prices" as UC_Total
+  usecase "Pay for Lab Order" as UC_Pay
+  usecase "View My Orders" as UC_MyOrders
+  usecase "Track Order Status" as UC_Track
+  usecase "View Current Order Status" as UC_Status
+  usecase "Receive Live Status Updates" as UC_Live
+  usecase "Manage Services and Packages" as UC_Catalog
+  usecase "View Lab Order Queue" as UC_Queue
+  usecase "Process Lab Order" as UC_Process
+  usecase "Validate Status Transition" as UC_Transition
+  usecase "View Lab Dashboard" as UC_Dashboard
+  usecase "View Customers" as UC_Customers
+}
+
+Guest --> UC_Search
+Guest --> UC_Details
+Photographer --> UC_Search
+Photographer --> UC_Details
+Photographer --> UC_Booking
+Photographer --> UC_Pay
+Photographer --> UC_MyOrders
+Photographer --> UC_Track
+LabOwner --> UC_Catalog
+LabOwner --> UC_Queue
+LabOwner --> UC_Process
+LabOwner --> UC_Dashboard
+LabOwner --> UC_Customers
+Admin --> UC_Queue
+Admin --> UC_Dashboard
+Payment ..> UC_Pay
+SSE ..> UC_Live
+
+UC_Filter ..> UC_Search : <<extend>>
+UC_Booking ..> UC_ValidateItems : <<include>>
+UC_Booking ..> UC_Total : <<include>>
+UC_Track ..> UC_Status : <<include>>
+UC_Live ..> UC_Track : <<extend>>
+UC_Process ..> UC_Transition : <<include>>
+
+note right of UC_Booking
+  Giá gửi từ browser không đáng tin cậy.
+  Backend lấy giá từ service/package
+  đang lưu trong database.
+end note
+
+note bottom of UC_Process
+  Luồng xử lý chuẩn:
+  pending -> received -> processing ->
+  scanning -> completed -> delivered.
+  Quyền owner phải giới hạn theo lab.
+end note
+
+@enduml

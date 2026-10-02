@@ -1,0 +1,61 @@
+@startuml FilmLab_Authentication
+title Authentication and Account Use Cases
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor Guest
+actor "Authenticated User" as AuthUser
+actor Photographer
+actor "Lab Owner" as LabOwner
+actor Seller
+actor Admin
+
+Photographer --|> AuthUser
+LabOwner --|> AuthUser
+Seller --|> AuthUser
+Admin --|> AuthUser
+
+rectangle "Film Lab Ecosystem - Authentication" {
+  usecase "Register" as UC_Register
+  usecase "Login" as UC_Login
+  usecase "Logout" as UC_Logout
+  usecase "View Profile" as UC_ViewProfile
+  usecase "Update Profile" as UC_UpdateProfile
+  usecase "Validate Required Fields" as UC_Validate
+  usecase "Check Unique Email" as UC_Email
+  usecase "Hash Password" as UC_Hash
+  usecase "Issue JWT" as UC_JWT
+  usecase "Verify Credentials" as UC_Verify
+}
+
+Guest --> UC_Register
+Guest --> UC_Login
+AuthUser --> UC_Logout
+AuthUser --> UC_ViewProfile
+AuthUser --> UC_UpdateProfile
+
+UC_Register ..> UC_Validate : <<include>>
+UC_Register ..> UC_Email : <<include>>
+UC_Register ..> UC_Hash : <<include>>
+UC_Register ..> UC_JWT : <<include>>
+UC_Login ..> UC_Verify : <<include>>
+UC_Login ..> UC_JWT : <<include>>
+
+note right of UC_Logout
+  Logout hiện được thực hiện ở frontend
+  bằng cách xóa JWT và user khỏi localStorage.
+end note
+
+note bottom of UC_Login
+  Forgot-password endpoint hiện là placeholder:
+  chưa gửi email hoặc phát reset token thật.
+  Đăng ký không cho client tự cấp role admin.
+end note
+
+@enduml

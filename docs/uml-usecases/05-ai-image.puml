@@ -1,0 +1,75 @@
+@startuml FilmLab_AI_Image
+title AI, Search and Image Use Cases
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor "Authenticated User" as User
+actor "AI Provider (Optional)" as AIProvider
+actor "Object Storage (Optional)" as Storage
+
+rectangle "Film Lab Ecosystem - AI and Image" {
+  usecase "Get Lab / Package / Film\nRecommendations" as UC_Recommend
+  usecase "Rank by Location, Service,\nRating and Budget" as UC_Rank
+  usecase "Semantic Search" as UC_Search
+  usecase "Retrieve Relevant Documents" as UC_Retrieve
+  usecase "Ask Photography Chatbot" as UC_Chat
+  usecase "Generate Answer from Context\n(RAG)" as UC_RAG
+  usecase "Use Local Fallback" as UC_Fallback
+  usecase "Upload Image" as UC_Upload
+  usecase "Validate Image Type and Size" as UC_ValidateImage
+  usecase "Store Image and Metadata" as UC_Store
+  usecase "Analyze Image Quality" as UC_Analyze
+  usecase "Review / Edit Image Feedback" as UC_ReviewImage
+  usecase "View / Delete Own Upload" as UC_ManageUpload
+  usecase "Share / Unshare Upload" as UC_Share
+}
+
+User --> UC_Recommend
+User --> UC_Search
+User --> UC_Chat
+User --> UC_Upload
+User --> UC_ReviewImage
+User --> UC_ManageUpload
+User --> UC_Share
+AIProvider ..> UC_Recommend
+AIProvider ..> UC_Search
+AIProvider ..> UC_Chat
+Storage ..> UC_Store
+
+UC_Recommend ..> UC_Rank : <<include>>
+UC_Search ..> UC_Retrieve : <<include>>
+UC_Chat ..> UC_RAG : <<include>>
+UC_Fallback ..> UC_Recommend : <<extend>>
+UC_Fallback ..> UC_Search : <<extend>>
+UC_Fallback ..> UC_Chat : <<extend>>
+UC_Upload ..> UC_ValidateImage : <<include>>
+UC_Upload ..> UC_Store : <<include>>
+UC_Upload ..> UC_Analyze : <<include>>
+UC_Share ..> UC_ManageUpload : <<extend>>
+
+note right of UC_Analyze
+  Heuristic metrics: brightness,
+  contrast, sharpness, noise,
+  colorfulness. Không khẳng định
+  chắc chắn film stock hay giá trị nghệ thuật.
+end note
+
+note bottom of UC_Search
+  Elasticsearch chưa được nối vào
+  luồng indexing/search của app.
+  Embedding/RAG hiện là prototype.
+end note
+
+note bottom of UC_Upload
+  Upload mặc định private.
+  Cần consent trước khi gửi nội dung
+  riêng tư tới provider bên ngoài.
+end note
+
+@enduml

@@ -1,0 +1,75 @@
+@startuml FilmLab_Marketplace
+title Marketplace Use Cases
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor Guest
+actor "Buyer (Authenticated User)" as Buyer
+actor Seller
+actor Admin
+actor "Payment Provider" as Payment
+
+rectangle "Film Lab Ecosystem - Marketplace" {
+  usecase "Browse Listings" as UC_Browse
+  usecase "Search and Filter Listings" as UC_Search
+  usecase "View Listing Details" as UC_Details
+  usecase "Create Listing" as UC_Create
+  usecase "Edit / Delete Own Listing" as UC_Manage
+  usecase "Favorite / Unfavorite Product" as UC_Favorite
+  usecase "Place Marketplace Order" as UC_Buy
+  usecase "Validate Quantity and Stock" as UC_Stock
+  usecase "Calculate Order Total" as UC_Total
+  usecase "Create Order and Decrement Stock\nAtomically" as UC_CreateOrder
+  usecase "Confirm Payment" as UC_Pay
+  usecase "View Related Orders" as UC_Orders
+  usecase "Update Order Status / Tracking" as UC_Status
+  usecase "Review Product" as UC_Review
+  usecase "Validate Rating (1..5)" as UC_Rating
+}
+
+Guest --> UC_Browse
+Guest --> UC_Search
+Guest --> UC_Details
+Buyer --> UC_Browse
+Buyer --> UC_Search
+Buyer --> UC_Details
+Buyer --> UC_Favorite
+Buyer --> UC_Buy
+Buyer --> UC_Pay
+Buyer --> UC_Orders
+Buyer --> UC_Status
+Buyer --> UC_Review
+Seller --> UC_Create
+Seller --> UC_Manage
+Seller --> UC_Orders
+Seller --> UC_Status
+Seller --> UC_Review
+Admin --> UC_Orders
+Admin --> UC_Status
+Payment ..> UC_Pay
+
+UC_Search ..> UC_Browse : <<extend>>
+UC_Buy ..> UC_Stock : <<include>>
+UC_Buy ..> UC_Total : <<include>>
+UC_Buy ..> UC_CreateOrder : <<include>>
+UC_Review ..> UC_Rating : <<include>>
+
+note right of UC_CreateOrder
+  Tạo order và giảm stock nằm trong
+  cùng transaction, khóa dòng product
+  để hạn chế overselling.
+end note
+
+note bottom of UC_Status
+  Chỉ buyer, seller liên quan hoặc admin
+  được thao tác order tương ứng.
+  Trạng thái phải theo transition hợp lệ.
+end note
+
+@enduml
