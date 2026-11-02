@@ -1,5 +1,5 @@
 @startuml FilmLab_UseCases_Overview
-title Film Lab Ecosystem - Use Case Overview
+title Sơ đồ Use Case tổng quan - Film Lab Ecosystem
 left to right direction
 skinparam shadowing false
 skinparam packageStyle rectangle
@@ -15,6 +15,7 @@ skinparam rectangle {
 }
 
 actor Guest
+actor User
 actor Photographer
 actor "Lab Owner" as LabOwner
 actor Seller
@@ -23,64 +24,97 @@ actor "Payment Provider" as Payment
 actor "AI Provider" as AIProvider
 actor "Object Storage" as Storage
 
+Photographer -|> User
+LabOwner -|> User
+Seller -|> User
+Admin -|> User
+
 rectangle "Film Lab Ecosystem" {
-  package "Authentication" {
-    usecase "Register / Login" as Auth
-    usecase "Manage Profile / Logout" as Profile
+  package "Tài khoản và xác thực" {
+    usecase "Đăng ký / Đăng nhập" as Auth
+    usecase "Quản lý hồ sơ / Đăng xuất" as Profile
   }
-  package "Film Lab" {
-    usecase "Search and View Labs" as BrowseLabs
-    usecase "Book and Track Lab Order" as LabOrder
-    usecase "Operate Lab Dashboard" as LabOps
+
+  package "Film Lab và đặt dịch vụ" {
+    usecase "Tìm kiếm / Xem Film Lab" as BrowseLabs
+    usecase "Đặt dịch vụ Film Lab" as LabOrder
+    usecase "Theo dõi đơn Film Lab" as TrackLabOrder
+    usecase "Quản lý dịch vụ / Gói dịch vụ" as ManageLabCatalog
+    usecase "Xử lý đơn hàng Film Lab" as ProcessLabOrder
   }
+
   package "Marketplace" {
-    usecase "Browse and Manage Listings" as Listing
-    usecase "Buy Product and Manage Order" as MarketOrder
+    usecase "Tìm kiếm / Xem sản phẩm" as BrowseProducts
+    usecase "Quản lý sản phẩm đăng bán" as ManageListings
+    usecase "Mua sản phẩm / Theo dõi đơn" as MarketOrder
+    usecase "Yêu thích / Đánh giá sản phẩm" as ProductFeedback
   }
-  package "Community and Events" {
-    usecase "Publish and Discuss Posts" as Community
-    usecase "Create / Join Events" as Events
+
+  package "Cộng đồng và sự kiện" {
+    usecase "Xem bài viết / Sự kiện" as BrowseCommunity
+    usecase "Đăng bài / Bình luận" as PublishPosts
+    usecase "Tạo sự kiện / Đăng ký tham gia" as Events
   }
-  package "AI and Image" {
-    usecase "Get Recommendations / Search" as AIUse
-    usecase "Ask Chatbot / RAG" as Chat
-    usecase "Upload and Analyze Image" as Image
+
+  package "AI và quản lý ảnh" {
+    usecase "Nhận gợi ý / Tìm kiếm ngữ nghĩa" as Recommendations
+    usecase "Trao đổi với Chatbot" as Chatbot
+    usecase "Tải lên / Phân tích ảnh" as ImageAnalysis
   }
-  package "Administration and Reports" {
-    usecase "View Overview and Orders" as AdminOverview
-    usecase "View Operational Reports" as Reports
+
+  package "Quản trị" {
+    usecase "Quản lý và giám sát hệ thống" as AdminManagement
+    usecase "Xem báo cáo vận hành" as Reports
   }
+
+  usecase "Xử lý thanh toán" as PaymentProcessing
 }
 
 Guest --> Auth
 Guest --> BrowseLabs
-Photographer --> Profile
-Photographer --> BrowseLabs
-Photographer --> LabOrder
-Photographer --> MarketOrder
-Photographer --> Community
-Photographer --> Events
-Photographer --> AIUse
-Photographer --> Chat
-Photographer --> Image
-LabOwner --> LabOps
-LabOwner --> Reports
-Seller --> Listing
-Seller --> MarketOrder
-Admin --> AdminOverview
-Admin --> Reports
-Admin --> LabOps
-Admin --> Listing
-Payment ..> LabOrder
-Payment ..> MarketOrder
-AIProvider ..> Chat
-AIProvider ..> AIUse
-Storage ..> Image
+Guest --> BrowseProducts
+Guest --> BrowseCommunity
 
-note bottom of Reports
-  Lab reports có daily/monthly aggregates.
-  Admin overview/orders có endpoint.
-  Export/analytics nâng cao chưa xác nhận.
+User --> Profile
+User --> BrowseLabs
+User --> BrowseProducts
+User --> BrowseCommunity
+
+Photographer --> LabOrder
+Photographer --> TrackLabOrder
+Photographer --> MarketOrder
+Photographer --> ProductFeedback
+Photographer --> PublishPosts
+Photographer --> Events
+Photographer --> Recommendations
+Photographer --> Chatbot
+Photographer --> ImageAnalysis
+
+LabOwner --> ManageLabCatalog
+LabOwner --> ProcessLabOrder
+LabOwner --> Reports
+
+Seller --> ManageListings
+Seller --> MarketOrder
+
+Admin --> AdminManagement
+Admin --> Reports
+
+LabOrder ..> PaymentProcessing : <<include>>
+MarketOrder ..> PaymentProcessing : <<include>>
+Payment --> PaymentProcessing
+AIProvider ..> Recommendations
+AIProvider ..> Chatbot
+Storage ..> ImageAnalysis
+
+note bottom of AdminManagement
+  Một số chức năng quản trị nâng cao
+  có thể chưa được triển khai đầy đủ.
+end note
+
+note bottom of Recommendations
+  AI provider là tích hợp tùy chọn;
+  hệ thống có thể dùng xử lý dự phòng cục bộ.
 end note
 
 @enduml

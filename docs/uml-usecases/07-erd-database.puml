@@ -1,0 +1,266 @@
+@startuml FilmLab_Ecosystem_ERD
+' ERD for Chapter 3.2, based on backend/db/schema.sql
+left to right direction
+hide circle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  FontColor #24343A
+}
+skinparam packageStyle rectangle
+skinparam note {
+  BackgroundColor #FFF8E8
+  BorderColor #C8953D
+  FontColor #24343A
+}
+
+package "Tai khoan va noi dung" {
+  entity "users" as users {
+    * id : UUID <<PK>>
+    --
+    email : TEXT <<UNIQUE>>
+    password_hash : TEXT
+    name : TEXT
+    role : user_role_enum
+    avatar_url : TEXT
+    phone : TEXT
+  }
+
+  entity "posts" as posts {
+    * id : UUID <<PK>>
+    --
+    author_id : UUID <<FK>>
+    title : TEXT
+    body : TEXT
+    tags : TEXT[]
+    visibility : post_visibility_enum
+    published_at : TIMESTAMPTZ
+  }
+
+  entity "comments" as comments {
+    * id : UUID <<PK>>
+    --
+    post_id : UUID <<FK>>
+    author_id : UUID <<FK>>
+    content : TEXT
+  }
+
+  entity "messages" as messages {
+    * id : UUID <<PK>>
+    --
+    sender_id : UUID <<FK>>
+    recipient_id : UUID <<FK>>
+    content : TEXT
+    sent_at : TIMESTAMPTZ
+    read : BOOLEAN
+  }
+}
+
+package "Film Lab va don dich vu" {
+  entity "film_labs" as film_labs {
+    * id : UUID <<PK>>
+    --
+    owner_id : UUID <<FK>>
+    name : TEXT
+    address : TEXT
+    city : TEXT
+    country : TEXT
+    rating : REAL
+  }
+
+  entity "lab_services" as lab_services {
+    * id : UUID <<PK>>
+    --
+    lab_id : UUID <<FK>>
+    name : TEXT
+    service_type : TEXT
+    price : REAL
+    duration_minutes : INTEGER
+  }
+
+  entity "lab_packages" as lab_packages {
+    * id : UUID <<PK>>
+    --
+    lab_id : UUID <<FK>>
+    title : TEXT
+    price : REAL
+    description : TEXT
+  }
+
+  entity "orders" as orders {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    lab_id : UUID <<FK>>
+    status : order_status_enum
+    total_price : REAL
+    requested_at : TIMESTAMPTZ
+    due_date : TIMESTAMPTZ
+    tracking_code : TEXT
+  }
+
+  entity "order_items" as order_items {
+    * id : UUID <<PK>>
+    --
+    order_id : UUID <<FK>>
+    item_type : TEXT
+    item_id : UUID
+    quantity : INTEGER
+    unit_price : REAL
+  }
+
+  entity "transactions" as transactions {
+    * id : UUID <<PK>>
+    --
+    order_id : UUID <<FK, nullable>>
+    amount : REAL
+    currency : TEXT
+    payment_method : TEXT
+    status : transaction_status_enum
+    provider_reference : TEXT
+  }
+}
+
+package "Marketplace" {
+  entity "products" as products {
+    * id : UUID <<PK>>
+    --
+    seller_id : UUID <<FK>>
+    title : TEXT
+    category : TEXT
+    condition : TEXT
+    price : REAL
+    stock : INTEGER
+  }
+
+  entity "favorites" as favorites {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+  }
+
+  entity "marketplace_orders" as marketplace_orders {
+    * id : UUID <<PK>>
+    --
+    buyer_id : UUID <<FK>>
+    seller_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+    quantity : INTEGER
+    total_price : REAL
+    status : marketplace_order_status_enum
+    proof_upload_id : UUID <<FK, nullable>>
+  }
+
+  entity "reviews" as reviews {
+    * id : UUID <<PK>>
+    --
+    author_id : UUID <<FK>>
+    target_type : TEXT
+    target_id : UUID
+    rating : INTEGER <<CHECK 1..5>>
+    review_text : TEXT
+  }
+}
+
+package "Su kien, tep va AI" {
+  entity "workshops" as workshops {
+    * id : UUID <<PK>>
+    --
+    organizer_id : UUID <<FK>>
+    title : TEXT
+    event_date : TIMESTAMPTZ
+    capacity : INTEGER
+    published_at : TIMESTAMPTZ
+  }
+
+  entity "photowalks" as photowalks {
+    * id : UUID <<PK>>
+    --
+    organizer_id : UUID <<FK>>
+    title : TEXT
+    event_date : TIMESTAMPTZ
+    capacity : INTEGER
+    published_at : TIMESTAMPTZ
+  }
+
+  entity "event_registrations" as event_registrations {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    event_type : event_registration_type_enum
+    event_id : UUID
+    status : event_registration_status_enum
+  }
+
+  entity "uploads" as uploads {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>
+    filename : TEXT
+    mime_type : TEXT
+    size : INTEGER
+    url : TEXT
+    quality : JSONB
+    shared : BOOLEAN
+  }
+
+  entity "rag_documents" as rag_documents {
+    * id : UUID <<PK>>
+    --
+    source : TEXT
+    title : TEXT
+    content : TEXT
+    metadata : JSONB
+    embedding : JSONB
+  }
+}
+
+users "1" -- "0..*" film_labs : owns
+film_labs "1" -- "0..*" lab_services : provides
+film_labs "1" -- "0..*" lab_packages : offers
+users "1" -- "0..*" orders : places
+film_labs "1" -- "0..*" orders : receives
+orders "1" -- "0..*" order_items : contains
+orders "0..1" -- "0..*" transactions : has
+users "1" -- "0..*" products : sells
+users "1" -- "0..*" favorites : saves
+products "1" -- "0..*" favorites : is_saved_in
+users "1" -- "0..*" marketplace_orders : buys
+users "1" -- "0..*" marketplace_orders : sells
+products "1" -- "0..*" marketplace_orders : ordered_as
+users "1" -- "0..*" reviews : writes
+users "1" -- "0..*" posts : authors
+posts "1" -- "0..*" comments : has
+users "1" -- "0..*" comments : writes
+users "1" -- "0..*" messages : sends
+users "1" -- "0..*" messages : receives
+users "1" -- "0..*" workshops : organizes
+users "1" -- "0..*" photowalks : organizes
+users "1" -- "0..*" event_registrations : registers
+users "1" -- "0..*" uploads : owns
+uploads "0..1" -- "0..*" marketplace_orders : payment_proof
+
+note right of order_items
+  item_type + item_id tham chieu den service hoac package.
+  item_id khong co FK truc tiep trong schema.
+end note
+
+note right of reviews
+  target_type + target_id la quan he da hinh.
+  target_id khong co FK truc tiep den lab/product.
+end note
+
+note right of event_registrations
+  event_type + event_id la quan he da hinh den workshop
+  hoac photowalk. event_id khong khai bao FK trong schema.
+end note
+
+note bottom of rag_documents
+  Embedding va metadata duoc luu dang JSONB;
+  bang nay chua co FK den cac bang nghiep vu.
+end note
+
+@enduml

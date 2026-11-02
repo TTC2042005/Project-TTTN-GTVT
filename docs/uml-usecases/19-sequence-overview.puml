@@ -1,0 +1,151 @@
+@startuml SD_ProjectOverview
+title Sequence Diagram Tong quan - Film Lab Ecosystem
+autonumber
+hide footbox
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+
+actor "Nguoi dung" as User
+boundary "Giao dien ung dung" as UI
+control "Backend API" as API
+database "Co so du lieu" as DB
+participant "Dich vu AI" as AI
+
+== Dang nhap ==
+
+User -> UI: Nhap email va mat khau
+UI -> API: Gui thong tin dang nhap
+API -> DB: Tim tai khoan theo email trong users
+DB --> API: Thong tin tai khoan
+
+alt Thong tin hop le
+  API -> API: Doi chieu mat khau voi password_hash
+  API --> UI: Xac thuc thanh cong
+  UI --> User: Hien thi cac module
+else Thong tin khong hop le
+  API --> UI: Tra loi loi xac thuc
+  UI --> User: Hien thi thong bao loi
+end
+
+opt Nguoi dung da dang nhap
+  User -> UI: Chon mot module
+  UI -> API: Gui yeu cau chuc nang
+
+  alt Film Lab
+    API -> DB: Lay Film Lab, dich vu va goi
+    DB --> API: Danh sach film_labs, lab_services, lab_packages
+    API --> UI: Hien thi danh muc
+    User -> UI: Chon dich vu/goi va xac nhan dat
+    UI -> API: Gui thong tin don hang
+    API -> DB: Kiem tra Film Lab va cac muc da chon
+    DB --> API: Ket qua kiem tra
+    alt Du lieu hop le
+      API -> DB: Tao orders
+      API -> DB: Tao order_items
+      DB --> API: order_id
+      opt Ghi nhan giao dich
+        API -> DB: Tao transactions gan voi order_id
+        DB --> API: transaction_id
+      end
+      API --> UI: Tra thong tin don hang
+      UI --> User: Hien thi xac nhan
+    else Du lieu khong hop le
+      API --> UI: Tra loi loi tao don
+      UI --> User: Hien thi thong bao loi
+    end
+
+  else Marketplace
+    API -> DB: Lay danh sach products
+    DB --> API: Danh sach san pham
+    API --> UI: Hien thi san pham
+    alt Luu san pham yeu thich
+      User -> UI: Chon yeu thich
+      UI -> API: Gui user_id va product_id
+      API -> DB: Tao favorites
+      DB --> API: Xac nhan
+      API --> UI: Cap nhat trang thai yeu thich
+    else Dat mua san pham
+      User -> UI: Chon san pham va so luong
+      UI -> API: Gui yeu cau dat mua
+      API -> DB: Kiem tra products.stock
+      DB --> API: Ket qua kiem tra ton kho
+      alt Con du hang
+        API -> DB: Tao marketplace_orders
+        DB --> API: order_id
+        opt Tai minh chung thanh toan
+          User -> UI: Chon tep minh chung
+          UI -> API: Tai tep len
+          API -> DB: Tao uploads
+          DB --> API: upload_id
+          API -> DB: Gan upload_id vao proof_upload_id
+          DB --> API: Xac nhan cap nhat
+        end
+        API --> UI: Tra thong tin don hang
+        UI --> User: Hien thi ket qua
+      else Khong du hang
+        API --> UI: Tra loi loi ton kho
+        UI --> User: Yeu cau dieu chinh so luong
+      end
+    end
+
+  else Cong dong va su kien
+    alt Dang bai hoac binh luan
+      User -> UI: Nhap bai viet hoac binh luan
+      UI -> API: Gui noi dung
+      alt Tao bai viet
+        API -> DB: Tao posts
+        DB --> API: post_id
+      else Tao binh luan
+        API -> DB: Tao comments
+        DB --> API: comment_id
+      end
+      API --> UI: Tra noi dung vua tao
+      UI --> User: Hien thi noi dung
+    else Gui tin nhan
+      User -> UI: Nhap nguoi nhan va noi dung
+      UI -> API: Gui sender_id, recipient_id, content
+      API -> DB: Tao messages
+      DB --> API: Xac nhan gui tin
+      API --> UI: Tra ket qua
+      UI --> User: Hien thi tin nhan
+    else Dang ky su kien
+      User -> UI: Chon workshop hoac photowalk
+      UI -> API: Gui event_type va event_id
+      API -> DB: Tao event_registrations
+      DB --> API: Xac nhan dang ky
+      API --> UI: Tra ket qua
+      UI --> User: Hien thi xac nhan
+    end
+
+  else AI va anh
+    alt Phan tich anh
+      User -> UI: Chon anh can phan tich
+      UI -> API: Tai anh len
+      API -> DB: Tao uploads
+      DB --> API: upload_id va url
+      API -> AI: Gui anh de phan tich
+      AI --> API: Tra ket qua phan tich
+      API -> DB: Cap nhat uploads.quality
+      DB --> API: Xac nhan cap nhat
+      API --> UI: Tra ket qua phan tich
+      UI --> User: Hien thi ket qua
+    else Hoi dap theo tai lieu RAG
+      User -> UI: Nhap cau hoi
+      UI -> API: Gui cau hoi
+      API -> DB: Tim tai lieu trong rag_documents
+      DB --> API: Tra tai lieu lien quan
+      API -> AI: Gui cau hoi kem ngu canh
+      AI --> API: Tra cau tra loi
+      API --> UI: Tra ket qua
+      UI --> User: Hien thi cau tra loi
+    end
+  end
+end
+
+note over API, DB
+  Luong minh hoa theo cac bang trong ERD.
+  AI va giao dien la thanh phan tich hop, khong phai bang du lieu.
+  event_id va order_items.item_id la lien ket da hinh.
+end note
+
+@enduml
