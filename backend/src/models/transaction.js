@@ -34,6 +34,23 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    verificationStatus: {
+      type: DataTypes.ENUM('pending', 'verified', 'rejected'),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    verifiedBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    verifiedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    verificationNote: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   }, {
     tableName: 'transactions',
     timestamps: true,

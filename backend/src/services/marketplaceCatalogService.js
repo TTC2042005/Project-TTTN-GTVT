@@ -106,7 +106,7 @@ async function getStaticMarketplaceCatalog() {
   const [cameras, lenses, films] = await Promise.all([
     getStaticCameraCatalog(),
     readStaticItems('Lenses', 'Lenses', lensPrices, 0, 'Lens from the website catalog.', Object.keys(lensPrices)),
-    readStaticItems('Flim', 'Film', {}, 10, 'Movie ticket from the classic film catalog.', classicFilmTitles),
+    readStaticItems('Flim', 'Film', {}, null, 'Classic film catalog item. Select an available screening for ticket price and availability.', classicFilmTitles),
   ]);
   return [...cameras, ...lenses, ...films];
 }

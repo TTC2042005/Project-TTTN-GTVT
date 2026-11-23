@@ -1,5 +1,6 @@
 param(
-  [switch]$NoOpen
+  [switch]$NoOpen,
+  [switch]$SeedDemoData
 )
 
 function Test-Docker {
@@ -43,12 +44,13 @@ docker compose up -d --build
 Write-Host "Waiting a few seconds for containers to initialize..."
 Start-Sleep -Seconds 5
 
-Write-Host "Running seed script inside backend container..."
-if (docker compose exec backend node src/seed.js) {
-  Write-Host "Seed executed via exec."
-} else {
-  Write-Host "Exec failed; running one-off container to seed..."
-  docker compose run --rm backend node src/seed.js
+if ($SeedDemoData) {
+  Write-Host "Seeding demo data without deleting existing records..."
+  docker compose exec -T backend node src/seed.js
+  if ($LASTEXITCODE -ne 0) {
+    Write-Error "Demo data seeding failed."
+    exit 1
+  }
 }
 
 if (-not $NoOpen) {

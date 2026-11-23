@@ -4,6 +4,7 @@ const router = express.Router();
 const { FilmLab, LabService, LabPackage, Order, OrderItem, User } = require('../models');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { broadcastOrderUpdate } = require('../services/orderEventService');
+const { recordAdminAction } = require('../services/adminAuditService');
 
 const allowedTransitions = {
   pending: ['received', 'processing', 'cancelled'],
@@ -113,8 +114,12 @@ router.patch('/orders/:id/status', authenticateToken, authorizeRoles('lab_owner'
     const { status } = req.body;
     if (!allowedTransitions[order.status]?.includes(status)) return res.status(409).json({ error: 'Invalid order status transition' });
 
+    const previousStatus = order.status;
     order.status = status;
     await order.save();
+    if (req.user.role === 'admin') {
+      await recordAdminAction(req, 'lab_order.status_changed', 'lab_order', order.id, { previousStatus, status });
+    }
     broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status, updatedAt: order.updatedAt });
     res.json(order);
   } catch (error) {

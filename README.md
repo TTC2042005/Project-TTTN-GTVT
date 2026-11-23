@@ -11,26 +11,30 @@
 | Tài khoản và vai trò | Đăng ký/đăng nhập/profile JWT; đăng ký không được tự cấp `admin`. Chưa có OAuth, xác minh email, reset mật khẩu thật hoặc rate limit. |
 | Film lab / booking | Tìm/lọc, service/package, đơn hàng, lab dashboard và trạng thái SSE. Đơn lấy giá từ DB và kiểm tra lab/service/package. |
 | Thanh toán | Có checkout Stripe/QR ở mức tích hợp cơ bản; webhook xác minh chữ ký khi đã cấu hình secret. Không nên bật thanh toán live trước khi test idempotency, refund, currency và đối soát. |
-| Marketplace | Listing, favorite, review và order; tạo order/giảm stock có transaction + row lock. Catalog ảnh tĩnh chỉ để duyệt, không phải listing giao dịch. |
+| Marketplace | Listing, favorite, review và order; tạo order/giảm stock có transaction + row lock. Seller listing chờ admin duyệt trước khi hiển thị; admin listing được đăng trực tiếp. |
 | Community / events | Posts/comments và workshop/photowalk; đăng ký sự kiện đã publish được khóa theo event để kiểm tra capacity. |
+| Admin workspace | Khu vực riêng tại `/admin`, có tổng quan, duyệt Marketplace, suất chiếu, vai trò/tài khoản và Film Lab, sự kiện/nội dung/báo cáo, đối soát giao dịch và audit log. Mọi API quản trị kiểm tra role ở backend; thao tác quan trọng được ghi vào database. |
 | Ảnh số | Upload ảnh riêng tư, heuristic quality metrics, AI visual feedback khi user consent và các preset chỉnh ảnh không phá hủy bản gốc. AI không xác định chắc chắn film stock; production vẫn cần quét malware, lifecycle và kiểm thử blob access. |
-| AI | Recommendation heuristic, chatbot/RAG và semantic search prototype. Chat truy hồi dữ liệu hiện tại của lab/service/package, listing Marketplace, event, bài viết public và knowledge documents; câu hỏi phù hợp được trả lời từ dữ liệu cục bộ, các câu hỏi mở dùng OpenAI nếu cấu hình `OPENAI_API_KEY`. Elasticsearch chưa được tích hợp vào luồng tìm kiếm; RAG/vector index và đánh giá chất lượng production vẫn cần hoàn thiện. |
+| AI | Recommendation heuristic, chatbot/RAG và semantic search prototype. Chatbot dùng Gemini khi cấu hình `GEMINI_API_KEY`, đồng thời truy hồi dữ liệu hiện tại của lab/service/package, listing Marketplace, event, bài viết public và knowledge documents; OpenAI vẫn được dùng tùy chọn cho embedding/semantic search và phân tích ảnh. Elasticsearch chưa được tích hợp vào luồng tìm kiếm; RAG/vector index và đánh giá chất lượng production vẫn cần hoàn thiện. |
 | Tài liệu / triển khai | Docker Compose và tài liệu SRS/architecture có. Chưa có CI, OpenAPI hoàn chỉnh, E2E/security/load test, monitoring, backup/restore và triển khai cloud được xác minh. |
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and set a private, long random `JWT_SECRET` (never commit `.env`).
+1. Copy `.env.example` to `.env`, set a private, long random `JWT_SECRET`, and add a Gemini API key to `GEMINI_API_KEY` to enable the chatbot (never commit `.env`).
 2. Install dependencies
    - cd backend && npm install
    - cd frontend && npm install
 3. Start database services
    - docker compose up -d postgres elasticsearch
-4. Seed demo data
+4. (Optional) Seed demo data
    - cd backend && node src/seed.js
+   - Seeding is idempotent and does not delete existing accounts or records.
 5. Start backend
    - cd backend && npm run dev
 6. Start frontend
    - cd frontend && npm run dev
+
+On Windows with Docker Desktop, `.\dev-start.ps1` starts the app and opens it in a browser. Demo data is not seeded automatically; use `.\dev-start.ps1 -SeedDemoData` only when you want the sample records.
 
 ## Required environment variables
 
@@ -42,6 +46,8 @@ Backend:
 - STRIPE_WEBHOOK_SECRET (required to accept Stripe webhooks)
 - BANK_QR_URL / BANK_ACCOUNT_NAME / BANK_ACCOUNT_NUMBER / BANK_NAME (optional)
 - OPENAI_API_KEY (optional)
+- GEMINI_API_KEY (optional; enables Gemini in the chatbot)
+- GEMINI_MODEL (optional; defaults to `gemini-2.5-flash`)
 - AWS_ACCESS_KEY_ID (optional)
 - AWS_SECRET_ACCESS_KEY (optional)
 - AWS_S3_BUCKET (optional)
@@ -54,6 +60,8 @@ Backend:
 - Admin: admin@example.com / password
 
 > Chỉ dùng tài khoản demo ở môi trường local. Không dùng thông tin seed, JWT secret trong Docker Compose hoặc dữ liệu mẫu cho môi trường thật.
+
+PostgreSQL data is stored in the `postgres-data` Docker volume and survives `docker compose down`. Avoid `docker compose down -v` unless you intentionally want to delete that database.
 
 ## Các việc cần hoàn thiện trước nghiệm thu/production
 

@@ -10,25 +10,47 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, role = 'photographer', phone, avatarUrl } = req.body;
-    if (!email || !password || !name) {
+    const { email, password, name, role = 'photographer', phone, avatarUrl, location } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string' || !email.trim() || !password || !name.trim()) {
       return res.status(400).json({ error: 'Name, email and password are required' });
     }
     if (!['photographer', 'seller', 'lab_owner'].includes(role)) {
       return res.status(400).json({ error: 'Invalid account role' });
     }
+    if ([phone, avatarUrl, location].some((value) => value != null && typeof value !== 'string')) {
+      return res.status(400).json({ error: 'Profile fields must be strings' });
+    }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     const existingUser = await User.findOne({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(409).json({ error: 'User already exists' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ email: normalizedEmail, passwordHash, name: String(name).trim(), role, phone, avatarUrl });
+    const user = await User.create({
+      email: normalizedEmail,
+      passwordHash,
+      name: name.trim(),
+      role,
+      phone: phone?.trim() || null,
+      avatarUrl: avatarUrl?.trim() || null,
+      location: location?.trim() || null,
+    });
 
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, role: user.role }, token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl,
+        location: user.location,
+      },
+      token,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -60,7 +82,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id', 'name', 'email', 'role', 'phone', 'avatarUrl', 'location', 'createdAt'] });
+    const user = await User.findByPk(req.user.id, { attributes: ['id', 'name', 'email', 'role', 'phone', 'avatarUrl', 'location', 'bio', 'createdAt'] });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (error) {
@@ -70,14 +92,37 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { name, phone, avatarUrl } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const body = req.body || {};
+    const { name } = body;
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+
+    const profileFields = ['phone', 'avatarUrl', 'location', 'bio'];
+    if (profileFields.some((field) => Object.prototype.hasOwnProperty.call(body, field)
+      && body[field] != null && typeof body[field] !== 'string')) {
+      return res.status(400).json({ error: 'Profile fields must be strings' });
+    }
 
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    await user.update({ name, phone, avatarUrl });
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone, avatarUrl: user.avatarUrl });
+    const updates = { name: name.trim() };
+    for (const field of profileFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        updates[field] = typeof body[field] === 'string' ? body[field].trim() || null : null;
+      }
+    }
+
+    await user.update(updates);
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      avatarUrl: user.avatarUrl,
+      location: user.location,
+      bio: user.bio,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

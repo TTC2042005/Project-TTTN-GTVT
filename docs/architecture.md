@@ -32,10 +32,19 @@ The system is composed of four major domains:
   - Elasticsearch for search indexes
   - Blob storage for scanned images / print assets
 - **AI services**
-  - OpenAI / Azure OpenAI for LLM
-  - Semantic search with Elasticsearch
+  - Google Gemini API for chatbot/RAG response generation
+  - OpenAI embeddings for optional RAG document ranking and semantic-search prototype
+  - OpenAI vision for optional, consent-based image feedback
   - Recommendation engine using usage signals and metadata
-  - RAG / knowledge retrieval for photography support
+  - Local project-data and knowledge-document retrieval for RAG; Elasticsearch is not yet connected to this path
+
+### Chatbot and Gemini configuration
+
+- `POST /api/ai/rag` uses Gemini when the backend has `GEMINI_API_KEY`; `GEMINI_MODEL` selects the model and defaults to `gemini-2.5-flash`.
+- The backend sends the key to Google from the server. Keep it in the ignored root `.env`; do not expose it through `NEXT_PUBLIC_*` variables or commit it.
+- The chatbot retrieves current lab, service, package, Marketplace, event, community, and knowledge-document context before generating an answer. Catalog price questions may be answered deterministically from the current catalog without calling Gemini.
+- If Gemini is not configured, the endpoint uses local project-data answers. When OpenAI embeddings are not configured, knowledge documents are ranked locally; this is a prototype retrieval path, not a vector database.
+- OpenAI is still used by separate semantic-search and image-feedback paths when configured; those features have not been migrated to Gemini.
 
 ## Data flow
 
@@ -60,9 +69,9 @@ The system is composed of four major domains:
 - Production deployment can target Azure App Service, Azure Container Instances, or Kubernetes.
 - Use managed PostgreSQL, Elasticsearch, and blob storage in production.
 
-## Implementation boundary (reviewed 2026-09-29)
+## Implementation boundary (reviewed 2026-11-23)
 
-The component list above describes the intended architecture, not proof that every provider is connected. The current repository implements PostgreSQL/Sequelize, Express REST routes, a Next.js UI, local/S3-compatible upload code, JWT, heuristic recommendation/image metrics, and in-process realtime events. Elasticsearch is started by Docker Compose but is not yet wired into the application search/indexing path. AI embeddings currently use database document rows and in-process cosine scoring rather than a production vector index. OAuth, production email, signed private media URLs, CI/CD, centralized observability, and tested cloud deployment remain planned work.
+The component list above describes the intended architecture, not proof that every provider is connected. The current repository implements PostgreSQL/Sequelize, Express REST routes, a Next.js UI, local/S3-compatible upload code, JWT, heuristic recommendation/image metrics, and in-process realtime events. Elasticsearch is started by Docker Compose but is not yet wired into the application search/indexing path. The chatbot can use Gemini for generation; retrieval uses local project data and knowledge documents, with optional OpenAI embeddings and in-process cosine scoring rather than a production vector index. OAuth, production email, signed private media URLs, CI/CD, centralized observability, and tested cloud deployment remain planned work.
 
 ### Order and payment trust boundaries
 

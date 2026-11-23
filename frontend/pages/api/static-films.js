@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-const ticketPrice = 10;
-
 export default function handler(req, res) {
   try {
     const publicDir = path.join(process.cwd(), 'public');
@@ -19,8 +17,7 @@ export default function handler(req, res) {
       title: path.parse(file).name,
       category: 'Film',
       condition: 'Available',
-      price: ticketPrice,
-      description: 'Movie ticket for a classic film screening.',
+      description: 'Classic film catalog item. Choose an available screening to see ticket details.',
       imageUrl: `/Flim/${encodeURIComponent(file)}`,
       stock: 1,
     }));

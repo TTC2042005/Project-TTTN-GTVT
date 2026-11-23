@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const router = express.Router();
 const { Product, User, Favorite, MarketplaceOrder, Review, Upload } = require('../models');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const { recordAdminAction } = require('../services/adminAuditService');
 const fs = require('fs');
 const path = require('path');
 const { cameraPrices, getStaticCameraCatalog } = require('../services/marketplaceCatalogService');
@@ -21,7 +22,6 @@ const normalizeCameraProduct = (product) => {
 
   return {
     ...data,
-    price: cameraPrices[data.title],
     imageUrl: `/Cameras/${encodeURIComponent(`${data.title}.jpg`)}`,
   };
 };
@@ -29,7 +29,7 @@ const normalizeCameraProduct = (product) => {
 router.get('/listings', async (req, res) => {
   try {
     const { q, category, minPrice, maxPrice, condition } = req.query;
-    const where = {};
+    const where = { moderationStatus: 'approved' };
 
     if (q) {
       where[Op.or] = [
@@ -58,7 +58,7 @@ router.get('/listings/:id', async (req, res) => {
     const product = await Product.findByPk(req.params.id, {
       include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'email'] }],
     });
-    if (!product) return res.status(404).json({ error: 'Product not found' });
+    if (!product || product.moderationStatus !== 'approved') return res.status(404).json({ error: 'Product not found' });
     const reviews = await Review.findAll({ where: { targetType: 'marketplace_product', targetId: product.id } });
     res.json({ ...normalizeCameraProduct(product), reviews });
   } catch (error) {
@@ -102,20 +102,32 @@ router.get('/static-lenses', async (req, res) => {
 
 router.post('/listings', authenticateToken, authorizeRoles('seller', 'admin'), async (req, res) => {
   try {
-    const { title, category, condition, price, description, stock } = req.body;
-    if (!title || !category || typeof price !== 'number') {
-      return res.status(400).json({ error: 'title, category and price are required' });
+    const { title, category, condition, price, description, stock, imageUrl } = req.body || {};
+    const parsedStock = stock == null ? 1 : Number(stock);
+    if (typeof title !== 'string' || !title.trim()
+      || typeof category !== 'string' || !category.trim()
+      || typeof price !== 'number' || !Number.isFinite(price) || price < 0
+      || !Number.isSafeInteger(parsedStock) || parsedStock < 0
+      || (condition != null && typeof condition !== 'string')
+      || (description != null && typeof description !== 'string')
+      || (imageUrl != null && typeof imageUrl !== 'string')) {
+      return res.status(400).json({ error: 'A title, category, non-negative price, and non-negative integer stock are required' });
     }
 
     const product = await Product.create({
       sellerId: req.user.id,
-      title,
-      category,
-      condition,
+      title: title.trim(),
+      category: category.trim(),
+      condition: condition?.trim() || null,
       price,
-      description,
-      stock: stock || 1,
+      description: description?.trim() || null,
+      imageUrl: imageUrl?.trim() || null,
+      stock: parsedStock,
+      moderationStatus: req.user.role === 'admin' ? 'approved' : 'pending',
     });
+    if (req.user.role === 'admin') {
+      await recordAdminAction(req, 'marketplace.listing_created', 'product', product.id, { title: product.title });
+    }
     res.status(201).json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -129,8 +141,32 @@ router.put('/listings/:id', authenticateToken, authorizeRoles('seller', 'admin')
     if (product.sellerId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const updates = req.body;
+    const body = req.body || {};
+    const updates = {};
+    for (const field of ['title', 'category', 'condition', 'description', 'imageUrl']) {
+      if (body[field] !== undefined) {
+        if (typeof body[field] !== 'string' || (['title', 'category'].includes(field) && !body[field].trim())) {
+          return res.status(400).json({ error: `${field} must be a valid string` });
+        }
+        updates[field] = body[field].trim() || null;
+      }
+    }
+    if (body.price !== undefined) {
+      if (typeof body.price !== 'number' || !Number.isFinite(body.price) || body.price < 0) {
+        return res.status(400).json({ error: 'price must be a non-negative number' });
+      }
+      updates.price = body.price;
+    }
+    if (body.stock !== undefined) {
+      if (!Number.isSafeInteger(body.stock) || body.stock < 0) return res.status(400).json({ error: 'stock must be a non-negative integer' });
+      updates.stock = body.stock;
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'At least one listing field is required' });
+    if (req.user.role !== 'admin') updates.moderationStatus = 'pending';
     await product.update(updates);
+    if (req.user.role === 'admin') {
+      await recordAdminAction(req, 'marketplace.listing_updated', 'product', product.id, { changes: updates });
+    }
     res.json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -145,6 +181,9 @@ router.delete('/listings/:id', authenticateToken, authorizeRoles('seller', 'admi
       return res.status(403).json({ error: 'Access denied' });
     }
     await product.destroy();
+    if (req.user.role === 'admin') {
+      await recordAdminAction(req, 'marketplace.listing_deleted', 'product', product.id, { title: product.title });
+    }
     res.json({ message: 'Product deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -190,6 +229,10 @@ router.post('/orders', authenticateToken, async (req, res) => {
     try {
       const product = await Product.findByPk(productId, { transaction: dbTransaction, lock: dbTransaction.LOCK.UPDATE });
       if (!product) {
+        await dbTransaction.rollback();
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      if (product.moderationStatus !== 'approved') {
         await dbTransaction.rollback();
         return res.status(404).json({ error: 'Product not found' });
       }
@@ -278,6 +321,10 @@ router.patch('/orders/:id/status', authenticateToken, async (req, res) => {
         await dbTransaction.rollback();
         return res.status(409).json({ error: 'Invalid marketplace order status transition' });
       }
+      if (status === 'paid' && !order.proofUploadId) {
+        await dbTransaction.rollback();
+        return res.status(409).json({ error: 'Payment must be supported by a submitted proof before it can be verified' });
+      }
       if (status === 'completed' && !isBuyer && req.user.role !== 'admin') {
         await dbTransaction.rollback();
         return res.status(403).json({ error: 'Only the buyer can confirm delivery' });
@@ -300,6 +347,9 @@ router.patch('/orders/:id/status', authenticateToken, async (req, res) => {
       }
       order.status = status;
       await order.save({ transaction: dbTransaction });
+      if (req.user.role === 'admin') {
+        await recordAdminAction(req, 'marketplace.order_status_changed', 'marketplace_order', order.id, { status }, dbTransaction);
+      }
       await dbTransaction.commit();
       res.json(order);
     } catch (error) {
@@ -317,7 +367,7 @@ router.post('/listings/:id/reviews', authenticateToken, async (req, res) => {
     const { id } = req.params;
     if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
     const product = await Product.findByPk(id);
-    if (!product) return res.status(404).json({ error: 'Product not found' });
+    if (!product || product.moderationStatus !== 'approved') return res.status(404).json({ error: 'Product not found' });
     const review = await Review.create({
       authorId: req.user.id,
       targetType: 'marketplace_product',

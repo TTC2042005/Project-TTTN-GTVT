@@ -16,6 +16,7 @@ const messagesRoutes = require('./routes/messages');
 const transactionsRoutes = require('./routes/transactions');
 const adminRoutes = require('./routes/admin');
 const paymentRoutes = require('./routes/payments');
+const filmScreeningRoutes = require('./routes/filmScreenings');
 const { initializeRealtimeServer } = require('./services/realtimeService');
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/film-screenings', filmScreeningRoutes);
 
 const port = process.env.PORT || 4000;
 

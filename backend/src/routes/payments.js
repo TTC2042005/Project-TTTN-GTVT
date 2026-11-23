@@ -32,6 +32,9 @@ router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async 
             paymentMethod: 'Stripe',
             status: 'succeeded',
             providerReference: session.id,
+            verificationStatus: 'verified',
+            verifiedAt: new Date(),
+            verificationNote: 'Verified by signed Stripe webhook',
           });
           broadcastRealtime({ type: 'order-updated', orderId: order.id, status: order.status });
           broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status, updatedAt: order.updatedAt });

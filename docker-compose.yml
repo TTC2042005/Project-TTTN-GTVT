@@ -33,6 +33,8 @@ services:
       ELASTICSEARCH_URL: http://elasticsearch:9200
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your ignored .env file before starting Compose}
       OPENAI_API_KEY: ''
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     depends_on:
       - postgres
       - elasticsearch

@@ -24,7 +24,12 @@ export default function LoginPage() {
       setToken(data.token);
       // persist user info indefinitely in localStorage
       if (data.user) setUser(data.user);
-      router.push('/');
+      const fallbackPath = data.user?.role === 'admin' ? '/admin' : '/';
+      const requestedPath = typeof router.query.returnTo === 'string' ? router.query.returnTo : fallbackPath;
+      const returnTo = requestedPath.startsWith('/') && !requestedPath.startsWith('//') && !requestedPath.includes('\\')
+        ? requestedPath
+        : fallbackPath;
+      router.push(returnTo);
     } catch (err) {
       setError(err.message);
     }

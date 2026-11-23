@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { fetchJson } from '../../lib/api';
+import { authHeaders, getToken } from '../../lib/auth';
 
 export default function CommunityDetail() {
   const router = useRouter();
@@ -9,6 +10,7 @@ export default function CommunityDetail() {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reportNotice, setReportNotice] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -27,6 +29,26 @@ export default function CommunityDetail() {
 
     loadPost();
   }, [id]);
+
+  async function reportPost() {
+    if (!getToken()) {
+      router.push(`/login?returnTo=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+    const reason = window.prompt('Mô tả lý do báo cáo bài viết:');
+    if (!reason?.trim()) return;
+    setReportNotice('');
+    try {
+      await fetchJson('/api/community/reports', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetType: 'post', targetId: id, reason }),
+      });
+      setReportNotice('Đã gửi báo cáo để đội ngũ quản trị xem xét.');
+    } catch (reportError) {
+      setReportNotice(reportError.message || 'Không thể gửi báo cáo.');
+    }
+  }
 
   return (
     <main className="container">
@@ -71,7 +93,9 @@ export default function CommunityDetail() {
               <div className="card-footer" style={{ marginTop: '1.5rem' }}>
                 <Link href="/community" className="button secondary">Back to community</Link>
                 <button type="button" className="button">Join discussion</button>
+                <button type="button" className="button secondary" onClick={reportPost}>Báo cáo bài viết</button>
               </div>
+              {reportNotice && <p role="status">{reportNotice}</p>}
             </aside>
           </div>
         ) : (

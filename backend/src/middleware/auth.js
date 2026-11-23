@@ -9,10 +9,17 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Authentication required' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid token' });
-    req.user = user;
-    next();
+    try {
+      const currentUser = await User.findByPk(user.id, { attributes: ['id', 'role'] });
+      if (!currentUser) return res.status(401).json({ error: 'Account no longer exists' });
+      req.user = { ...user, role: currentUser.role };
+      next();
+    } catch (error) {
+      console.error('Unable to verify authenticated user:', error);
+      res.status(500).json({ error: 'Unable to verify authentication' });
+    }
   });
 }
 

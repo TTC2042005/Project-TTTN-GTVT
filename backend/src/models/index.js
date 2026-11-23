@@ -20,6 +20,10 @@ const WorkshopModel = require('./workshop');
 const PhotowalkModel = require('./photowalk');
 const EventRegistrationModel = require('./eventRegistration');
 const RagDocumentModel = require('./ragDocument');
+const FilmScreeningModel = require('./filmScreening');
+const TicketReservationModel = require('./ticketReservation');
+const AdminAuditLogModel = require('./adminAuditLog');
+const ContentReportModel = require('./contentReport');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
@@ -50,6 +54,10 @@ const Workshop = WorkshopModel(sequelize);
 const Photowalk = PhotowalkModel(sequelize);
 const EventRegistration = EventRegistrationModel(sequelize);
 const RagDocument = RagDocumentModel(sequelize);
+const FilmScreening = FilmScreeningModel(sequelize);
+const TicketReservation = TicketReservationModel(sequelize);
+const AdminAuditLog = AdminAuditLogModel(sequelize);
+const ContentReport = ContentReportModel(sequelize);
 
 User.hasMany(FilmLab, { foreignKey: 'ownerId', as: 'labs' });
 FilmLab.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
@@ -105,8 +113,19 @@ Photowalk.belongsTo(User, { foreignKey: 'organizerId', as: 'organizer' });
 User.hasMany(EventRegistration, { foreignKey: 'userId', as: 'eventRegistrations' });
 EventRegistration.belongsTo(User, { foreignKey: 'userId' });
 
+FilmScreening.hasMany(TicketReservation, { foreignKey: 'screeningId', as: 'reservations' });
+TicketReservation.belongsTo(FilmScreening, { foreignKey: 'screeningId', as: 'screening' });
+User.hasMany(TicketReservation, { foreignKey: 'userId', as: 'ticketReservations' });
+TicketReservation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 Order.hasMany(Transaction, { foreignKey: 'orderId', as: 'transactions' });
 Transaction.belongsTo(Order, { foreignKey: 'orderId' });
+User.hasMany(Transaction, { foreignKey: 'verifiedBy', as: 'verifiedTransactions' });
+Transaction.belongsTo(User, { foreignKey: 'verifiedBy', as: 'verifier' });
+User.hasMany(AdminAuditLog, { foreignKey: 'actorId', as: 'adminActions' });
+AdminAuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(ContentReport, { foreignKey: 'reporterId', as: 'contentReports' });
+ContentReport.belongsTo(User, { foreignKey: 'reporterId', as: 'reporter' });
 
 const db = {
   sequelize,
@@ -130,6 +149,10 @@ const db = {
   Photowalk,
   EventRegistration,
   RagDocument,
+  FilmScreening,
+  TicketReservation,
+  AdminAuditLog,
+  ContentReport,
 };
 
 module.exports = db;

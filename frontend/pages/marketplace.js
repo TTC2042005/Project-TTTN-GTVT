@@ -77,7 +77,23 @@ const cameraPrices = {
 
 const formatPrice = (price) => `$${Number(price || 0).toLocaleString('en-US')}`;
 
-export default function Marketplace({ staticCameras: propsStaticCameras = [] }) {
+function normalizeText(value = '') {
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase();
+}
+
+async function fetchStaticCatalog(path) {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Could not load catalog (${response.status})`);
+  }
+  return response.json();
+}
+
+export default function Marketplace() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -86,11 +102,10 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [error, setError] = useState('');
-  const [staticShowcase, setStaticShowcase] = useState(propsStaticCameras || []);
+  const [staticShowcase, setStaticShowcase] = useState([]);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
-    if (query) params.set('q', query);
     if (category && category !== 'All Categories') params.set('category', category);
     if (condition && condition !== 'Any') params.set('condition', condition);
     if (minPrice) params.set('minPrice', minPrice);
@@ -101,52 +116,66 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
   const loadProducts = async () => {
     setLoading(true);
     setError('');
-    try {
-      let response = await fetchJson(`/api/marketplace/listings${buildQuery()}`);
+    const catalogPaths = [];
+    if (category === 'Cameras' || category === 'All Categories') catalogPaths.push('/api/static-cameras');
+    if (category === 'Lenses' || category === 'All Categories') catalogPaths.push('/api/static-lenses');
+    if (category === 'Film' || category === 'All Categories') catalogPaths.push('/api/static-films');
 
-      // Include catalog images from public folders when browsing their category.
-      if (category === 'Cameras' || category === 'Lenses' || category === 'Film' || category === 'All Categories') {
-        try {
-          const catalogPaths = [];
-          if (category === 'Cameras' || category === 'All Categories') catalogPaths.push('/api/static-cameras');
-          if (category === 'Lenses' || category === 'All Categories') catalogPaths.push('/api/static-lenses');
-          if (category === 'Film' || category === 'All Categories') catalogPaths.push('/api/static-films');
-          const catalogs = await Promise.all(catalogPaths.map((catalogPath) => fetchJson(catalogPath)));
-          const staticItems = catalogs.flat();
+    const results = await Promise.allSettled([
+      fetchJson(`/api/marketplace/listings${buildQuery()}`),
+      ...catalogPaths.map(fetchStaticCatalog),
+    ]);
 
-          const q = query && query.trim().toLowerCase();
-          const filteredStatic = staticItems.filter((it) => {
-            const matchesQuery = !q || it.title.toLowerCase().includes(q);
-            const matchesMin = !minPrice || Number(it.price) >= Number(minPrice);
-            const matchesMax = !maxPrice || Number(it.price) <= Number(maxPrice);
-            return matchesQuery && matchesMin && matchesMax;
-          });
-
-          const existingTitles = new Set(response.map((p) => (p.title || '').toLowerCase()));
-          const merged = [...response];
-          for (const it of filteredStatic) {
-            if (!existingTitles.has((it.title || '').toLowerCase())) merged.push(it);
-          }
-          response = merged;
-          setStaticShowcase(filteredStatic);
-        } catch (err) {
-          // ignore static items if fetch fails
-        }
-      }
-      if (category !== 'Cameras' && category !== 'Lenses' && category !== 'Film' && category !== 'All Categories') {
-        setStaticShowcase([]);
-      }
-      // If query present and not using server-side q param, filter client-side as fallback
-      if (query && category !== 'All Categories') {
-        const q = query.trim().toLowerCase();
-        response = response.filter((p) => (p.title || '').toLowerCase().includes(q));
-      }
-      setProducts(response);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    const errors = [];
+    let listings = [];
+    if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
+      listings = results[0].value;
+    } else {
+      errors.push(results[0].status === 'rejected'
+        ? `Marketplace listings: ${results[0].reason.message}`
+        : 'Marketplace listings returned an invalid response.');
     }
+
+    const staticItems = [];
+    for (const result of results.slice(1)) {
+      if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+        staticItems.push(...result.value);
+      } else {
+        errors.push(result.status === 'rejected'
+          ? `Catalog: ${result.reason.message}`
+          : 'Catalog returned an invalid response.');
+      }
+    }
+
+    const normalizedQuery = normalizeText(query.trim());
+    const matchesFilters = (item) => {
+      const itemText = normalizeText(`${item.title || ''} ${item.description || ''} ${item.category || ''}`);
+      const itemPrice = item.price == null ? null : Number(item.price);
+      const matchesQuery = !normalizedQuery || itemText.includes(normalizedQuery);
+      const matchesCondition = condition === 'Any' || normalizeText(item.condition) === normalizeText(condition);
+      const matchesMin = !minPrice || (itemPrice != null && itemPrice >= Number(minPrice));
+      const matchesMax = !maxPrice || (itemPrice != null && itemPrice <= Number(maxPrice));
+      return matchesQuery && matchesCondition && matchesMin && matchesMax;
+    };
+
+    const filteredListings = listings.filter(matchesFilters);
+    const filteredStatic = staticItems.filter(matchesFilters);
+    const existingProducts = new Set(
+      filteredListings.map((item) => `${normalizeText(item.category)}:${normalizeText(item.title)}`),
+    );
+    const merged = [...filteredListings];
+    for (const item of filteredStatic) {
+      const key = `${normalizeText(item.category)}:${normalizeText(item.title)}`;
+      if (!existingProducts.has(key)) {
+        merged.push(item);
+        existingProducts.add(key);
+      }
+    }
+
+    setProducts(merged);
+    setStaticShowcase(filteredStatic);
+    setError(errors.join(' '));
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -197,9 +226,9 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
             <div className="section-heading">
               <div>
                 <span className="eyebrow">Featured gear</span>
-                <h2>{category === 'Lenses' ? 'Lenses Collection' : category === 'Film' ? 'Film Collection' : 'Cameras Collection'}</h2>
+                <h2>{category === 'All Categories' ? 'Catalog Collection' : category === 'Lenses' ? 'Lenses Collection' : category === 'Film' ? 'Film Collection' : 'Cameras Collection'}</h2>
               </div>
-              <p>{category === 'Film' ? 'Choose a classic film and get your $10 ticket.' : category === 'Lenses' ? 'Browse selected lenses for your next shoot.' : 'Browse carefully selected cameras ready for their next roll.'}</p>
+              <p>{category === 'Film' ? 'Choose a film, then select an available showtime and venue.' : category === 'Lenses' ? 'Browse selected lenses for your next shoot.' : 'Browse carefully selected cameras ready for their next roll.'}</p>
             </div>
             <div className="camera-grid">
               {staticShowcase.map((item) => (
@@ -214,9 +243,15 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
                       <h3>{item.title}</h3>
                     </div>
                     <div className="camera-card-footer">
-                      <strong>{formatPrice(item.price || cameraPrices[item.title])}</strong>
-                      <span>In stock</span>
+                      <strong>{item.category === 'Film' ? 'Price by showtime' : `Reference ${formatPrice(item.price || cameraPrices[item.title])}`}</strong>
+                      <span>{item.category === 'Film' ? 'Select a screening' : 'Catalog item'}</span>
                     </div>
+                    <Link href={`/marketplace/${encodeURIComponent(item.id)}`} className="button secondary">
+                      {item.category === 'Film' ? 'View showtimes' : 'View catalog item'}
+                    </Link>
+                    <Link href={`/marketplace/${encodeURIComponent(item.id)}`} className="button">
+                      {item.category === 'Film' ? 'Book movie ticket' : 'Buy'}
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -283,34 +318,42 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
               <button className="icon-button">≡</button>
             </div>
           </div>
+          {error && <div className="lab-list-error" role="alert">{error}</div>}
           {loading ? (
             <div className="lab-list-loading">Loading marketplace listings…</div>
-          ) : error ? (
-            <div className="lab-list-error">{error}</div>
           ) : products.length === 0 ? (
             <div className="lab-list-empty">No listings matched your search.</div>
           ) : (
             <div className="listing-grid">
-              {products.map((product) => (
+              {products.map((product) => {
+                const isCatalogItem = String(product.id).startsWith('static-');
+                return (
                 <article key={product.id} className="listing-card">
                   <div className="listing-image" style={{ backgroundImage: `url(${product.imageUrl || '/film-camera.jpg'})` }}>
                     <span className="listing-badge">{product.condition || 'Used'}</span>
                   </div>
                   <div className="listing-body">
                     <h3>{product.title}</h3>
-                    <p className="listing-price">{formatPrice(product.price)}</p>
+                    <p className="listing-price">{isCatalogItem && product.category === 'Film' ? 'Price by showtime' : isCatalogItem ? `Reference ${formatPrice(product.price)}` : formatPrice(product.price)}</p>
                     <div className="listing-meta">
                       <span>{product.category}</span>
-                      <span>{product.seller?.name || 'Seller'}</span>
+                      <span>{product.seller?.name || (isCatalogItem ? 'Website catalog' : 'Seller')}</span>
                     </div>
-                    <div className="listing-seller">Stock: {product.stock}</div>
+                    <div className="listing-seller">{isCatalogItem ? 'Catalog reference - not a live listing' : `Stock: ${product.stock}`}</div>
                     <div className="listing-actions">
-                      <Link href={`/marketplace/${product.id}`} className="button secondary">View</Link>
-                      <Link href={`/marketplace/${product.id}`} className="button">Buy</Link>
+                      <Link href={`/marketplace/${encodeURIComponent(product.id)}`} className="button secondary">
+                        {isCatalogItem ? product.category === 'Film' ? 'View showtimes' : 'View catalog item' : 'View'}
+                      </Link>
+                      {(isCatalogItem || product.stock > 0) && (
+                        <Link href={`/marketplace/${encodeURIComponent(product.id)}`} className="button">
+                          {isCatalogItem && product.category === 'Film' ? 'Book movie ticket' : 'Buy'}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
           <div className="marketplace-subscribe-card">
@@ -348,27 +391,4 @@ export default function Marketplace({ staticCameras: propsStaticCameras = [] }) 
       </section>
     </main>
   );
-}
-
-export async function getServerSideProps() {
-  try {
-    const camerasDir = path.join(process.cwd(), 'public', 'Cameras');
-    let items = [];
-    if (fs.existsSync(camerasDir)) {
-      const files = fs.readdirSync(camerasDir).filter((f) => /\.(jpg|jpeg|png|webp|gif)$/i.test(f));
-      items = files.map((file) => ({
-        id: `static-${file}`,
-        title: path.parse(file).name,
-        category: 'Cameras',
-        condition: 'Used',
-        price: cameraPrices[path.parse(file).name] || 0,
-        description: '',
-        imageUrl: `/Cameras/${encodeURIComponent(file)}`,
-        stock: 1,
-      }));
-    }
-    return { props: { staticCameras: items } };
-  } catch (e) {
-    return { props: { staticCameras: [] } };
-  }
 }

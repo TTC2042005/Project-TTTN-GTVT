@@ -93,6 +93,7 @@ async function buildProjectKnowledgeFresh(models) {
       limit: 30,
     }),
     Product.findAll({
+      where: { moderationStatus: 'approved' },
       include: [{ association: 'seller', attributes: ['id', 'name'] }],
       order: [['createdAt', 'DESC']],
       limit: 60,

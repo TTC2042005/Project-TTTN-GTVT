@@ -4,6 +4,7 @@ const { Order, OrderItem, FilmLab, LabService, LabPackage, User, Upload, Transac
 const { authenticateToken } = require('../middleware/auth');
 const { createCheckoutSession } = require('../services/paymentService');
 const { broadcastOrderUpdate, registerOrderListener } = require('../services/orderEventService');
+const { recordAdminAction } = require('../services/adminAuditService');
 const orderTransitions = {
   pending: ['pending_verification', 'received', 'processing', 'cancelled'],
   pending_verification: ['payment_rejected', 'processing'],
@@ -205,34 +206,67 @@ router.post('/:id/confirm-payment', authenticateToken, async (req, res) => {
 
 // Admin approves a pending bank payment
 router.post('/:id/verify-payment', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  const { action, transactionId, note } = req.body || {};
+  if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
+  if (note != null && typeof note !== 'string') return res.status(400).json({ error: 'note must be a string' });
+  const verificationNote = note?.trim() || null;
+  if (action === 'reject' && !verificationNote) {
+    return res.status(400).json({ error: 'A reason is required when rejecting a payment' });
+  }
+
+  const dbTransaction = await Order.sequelize.transaction();
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-    const { action, transactionId } = req.body; // action: 'approve'|'reject'
-    const order = await Order.findByPk(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-
-    if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
-    const tx = transactionId
-      ? await Transaction.findOne({ where: { id: transactionId, orderId: order.id, status: 'pending' } })
-      : await Transaction.findOne({ where: { orderId: order.id, paymentMethod: 'Bank QR', status: 'pending' } });
-    if (!tx || order.status !== 'pending_verification') return res.status(409).json({ error: 'No pending payment verification exists' });
-
-    if (action === 'approve') {
-      order.status = 'processing';
-      await order.save();
-      tx.status = 'succeeded';
-      await tx.save();
-      broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status });
-      return res.json({ message: 'Order marked as paid' });
-    } else if (action === 'reject') {
-      order.status = 'payment_rejected';
-      await order.save();
-      tx.status = 'failed';
-      await tx.save();
-      broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status });
-      return res.json({ message: 'Order payment rejected' });
+    const order = await Order.findByPk(req.params.id, {
+      transaction: dbTransaction,
+      lock: dbTransaction.LOCK.UPDATE,
+    });
+    if (!order) {
+      await dbTransaction.rollback();
+      return res.status(404).json({ error: 'Order not found' });
     }
+
+    const tx = transactionId
+      ? await Transaction.findOne({
+          where: { id: transactionId, orderId: order.id, status: 'pending', verificationStatus: 'pending' },
+          transaction: dbTransaction,
+          lock: dbTransaction.LOCK.UPDATE,
+        })
+      : await Transaction.findOne({
+          where: { orderId: order.id, paymentMethod: 'Bank QR', status: 'pending', verificationStatus: 'pending' },
+          transaction: dbTransaction,
+          lock: dbTransaction.LOCK.UPDATE,
+        });
+    if (!tx || order.status !== 'pending_verification') {
+      await dbTransaction.rollback();
+      return res.status(409).json({ error: 'No pending payment verification exists' });
+    }
+
+    const approved = action === 'approve';
+    const nextOrderStatus = approved ? 'processing' : 'payment_rejected';
+    await order.update({ status: nextOrderStatus }, { transaction: dbTransaction });
+    await tx.update({
+      status: approved ? 'succeeded' : 'failed',
+      verificationStatus: approved ? 'verified' : 'rejected',
+      verifiedBy: req.user.id,
+      verifiedAt: new Date(),
+      verificationNote,
+    }, { transaction: dbTransaction });
+    await recordAdminAction(req, 'transaction.reviewed', 'transaction', tx.id, {
+      result: approved ? 'verified' : 'rejected',
+      orderId: order.id,
+      orderStatus: nextOrderStatus,
+      note: verificationNote,
+    }, dbTransaction);
+    await dbTransaction.commit();
+    broadcastOrderUpdate(order.id, { orderId: order.id, status: order.status });
+    res.json({
+      message: approved ? 'Order marked as paid' : 'Order payment rejected',
+      order,
+      transaction: tx,
+    });
   } catch (error) {
+    if (!dbTransaction.finished) await dbTransaction.rollback();
     res.status(500).json({ error: error.message });
   }
 });

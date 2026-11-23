@@ -61,7 +61,7 @@ export default function Events() {
           {message && <div className="callout" style={{ marginTop: '1rem' }}>{message}</div>}
         </div>
         <div className="events-hero-visual">
-          <img src="/film-camera.jpg" alt="Film camera" className="hero-visual-img" />
+          <img src="/event.png" alt="Ưu đãi sự kiện cho máy ảnh và ống kính" className="hero-visual-img" />
         </div>
       </section>
 

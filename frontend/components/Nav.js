@@ -34,13 +34,11 @@ export default function Nav() {
   }, [theme]);
 
   useEffect(() => {
-    try {
-      const u = getUser();
-      if (u) setUser(u);
-    } catch (e) {
-      // ignore
-    }
-  }, []);
+    const syncUser = () => setUser(getUser());
+    syncUser();
+    router.events.on('routeChangeComplete', syncUser);
+    return () => router.events.off('routeChangeComplete', syncUser);
+  }, [router.events]);
 
   function toggleTheme() {
     setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
@@ -77,6 +75,11 @@ export default function Nav() {
             </Link>
           );
         })}
+        {user?.role === 'admin' && (
+          <Link href="/admin" className={`nav-link ${router.pathname.startsWith('/admin') ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
+            Quản trị
+          </Link>
+        )}
         {!user && (
           <>
             <Link href="/login" className={`nav-link ${router.pathname === '/login' ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>Login</Link>

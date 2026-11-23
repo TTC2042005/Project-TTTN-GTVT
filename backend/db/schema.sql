@@ -9,6 +9,11 @@ CREATE TYPE post_visibility_enum AS ENUM ('public', 'private', 'draft');
 CREATE TYPE event_registration_status_enum AS ENUM ('registered', 'checked_in', 'cancelled');
 CREATE TYPE event_registration_type_enum AS ENUM ('workshop', 'photowalk');
 CREATE TYPE transaction_status_enum AS ENUM ('pending', 'succeeded', 'failed', 'refunded');
+CREATE TYPE ticket_reservation_status_enum AS ENUM ('reserved', 'cancelled');
+CREATE TYPE product_moderation_status_enum AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE transaction_verification_status_enum AS ENUM ('pending', 'verified', 'rejected');
+CREATE TYPE content_report_target_enum AS ENUM ('post', 'comment', 'product', 'workshop', 'photowalk');
+CREATE TYPE content_report_status_enum AS ENUM ('open', 'reviewing', 'resolved', 'dismissed');
 
 CREATE TABLE users (
   id UUID PRIMARY KEY,
@@ -18,6 +23,8 @@ CREATE TABLE users (
   role user_role_enum NOT NULL DEFAULT 'photographer',
   avatar_url TEXT,
   phone TEXT,
+  bio TEXT,
+  location TEXT,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -93,6 +100,7 @@ CREATE TABLE products (
   price REAL NOT NULL DEFAULT 0,
   description TEXT,
   stock INTEGER NOT NULL DEFAULT 1,
+  moderation_status product_moderation_status_enum NOT NULL DEFAULT 'approved',
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -148,6 +156,10 @@ CREATE TABLE transactions (
   payment_method TEXT NOT NULL,
   status transaction_status_enum NOT NULL DEFAULT 'pending',
   provider_reference TEXT,
+  verification_status transaction_verification_status_enum NOT NULL DEFAULT 'pending',
+  verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  verified_at TIMESTAMPTZ,
+  verification_note TEXT,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -189,6 +201,34 @@ CREATE TABLE marketplace_orders (
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE film_screenings (
+  id UUID PRIMARY KEY,
+  film_title TEXT NOT NULL,
+  event_date TIMESTAMPTZ NOT NULL,
+  venue_name TEXT NOT NULL,
+  venue_address TEXT NOT NULL,
+  capacity INTEGER NOT NULL CHECK (capacity > 0),
+  ticket_price NUMERIC(10, 2) NOT NULL CHECK (ticket_price >= 0),
+  is_published BOOLEAN NOT NULL DEFAULT TRUE,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX film_screenings_title_date_idx ON film_screenings (film_title, event_date);
+
+CREATE TABLE ticket_reservations (
+  id UUID PRIMARY KEY,
+  screening_id UUID NOT NULL REFERENCES film_screenings(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 10),
+  status ticket_reservation_status_enum NOT NULL DEFAULT 'reserved',
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (screening_id, user_id)
+);
+
+CREATE INDEX ticket_reservations_screening_status_idx ON ticket_reservations (screening_id, status);
+
 CREATE TABLE workshops (
   id UUID PRIMARY KEY,
   organizer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -229,6 +269,29 @@ CREATE TABLE event_registrations (
   )
 );
 
+CREATE TABLE content_reports (
+  id UUID PRIMARY KEY,
+  reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type content_report_target_enum NOT NULL,
+  target_id UUID NOT NULL,
+  reason TEXT NOT NULL,
+  status content_report_status_enum NOT NULL DEFAULT 'open',
+  resolution_note TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE admin_audit_logs (
+  id UUID PRIMARY KEY,
+  actor_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id UUID,
+  details JSONB NOT NULL DEFAULT '{}',
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE rag_documents (
   id UUID PRIMARY KEY,
   source TEXT NOT NULL DEFAULT 'unknown',
@@ -253,4 +316,9 @@ CREATE INDEX idx_comments_author_id ON comments(author_id);
 CREATE INDEX idx_reviews_target ON reviews(target_type, target_id);
 CREATE INDEX idx_event_registrations_user_id ON event_registrations(user_id);
 CREATE INDEX idx_event_registrations_event ON event_registrations(event_type, event_id);
+CREATE INDEX idx_products_moderation_status ON products(moderation_status);
+CREATE INDEX idx_transactions_verification_status ON transactions(verification_status);
+CREATE INDEX idx_content_reports_status_created ON content_reports(status, "createdAt");
+CREATE INDEX idx_content_reports_target ON content_reports(target_type, target_id);
+CREATE INDEX idx_admin_audit_logs_created ON admin_audit_logs("createdAt");
 CREATE INDEX idx_rag_documents_source ON rag_documents(source);

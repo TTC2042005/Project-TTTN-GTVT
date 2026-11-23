@@ -134,7 +134,7 @@ Frontend gọi REST API backend. Backend truy cập PostgreSQL, có thể truy c
 - **FR-01 (Hiện có):** Hệ thống cho phép đăng ký bằng tên, email, mật khẩu và thông tin tùy chọn.
 - **FR-02 (Hiện có):** Hệ thống kiểm tra email duy nhất, băm mật khẩu bằng bcrypt và trả JWT sau đăng ký/đăng nhập.
 - **FR-03 (Hiện có):** Hệ thống cho phép đăng nhập và trả lỗi phù hợp khi thông tin không hợp lệ.
-- **FR-04 (Hiện có):** Người dùng đã xác thực có thể xem và cập nhật hồ sơ, gồm tên, điện thoại và avatar.
+- **FR-04 (Hiện có):** Người dùng đã xác thực có thể xem và cập nhật hồ sơ gồm tên, điện thoại, avatar, địa điểm và tiểu sử; thay đổi phải được lưu trong PostgreSQL và đọc lại được sau khi backend khởi động lại.
 - **FR-05 (Dự kiến):** Reset mật khẩu phải gửi token dùng một lần qua email, có hạn sử dụng và không tiết lộ email có tồn tại hay không.
 - **FR-06 (Dự kiến):** Hệ thống hỗ trợ OAuth 2.0 nếu được cấu hình nhà cung cấp.
 
@@ -202,9 +202,15 @@ Frontend gọi REST API backend. Backend truy cập PostgreSQL, có thể truy c
 
 ### 5.9 Quản trị
 
-- **FR-48 (Hiện có):** Admin có dashboard và quyền quản trị theo endpoint admin.
-- **FR-49 (Dự kiến):** Admin có thể khóa tài khoản, ẩn nội dung vi phạm, xử lý báo cáo và xem audit log.
-- **FR-50 (Dự kiến):** Hệ thống phải cung cấp phân trang, lọc và xuất báo cáo cho dữ liệu lớn.
+- **FR-48 (Hiện có):** Admin có workspace riêng tại `/admin`, dashboard lấy số liệu thật từ database và quyền được xác minh ở backend; có liên kết chuyển về trang public.
+- **FR-49 (Hiện có):** Admin tra cứu tài khoản và đổi role, xem lab/đơn, duyệt listing, quản lý workshop/photowalk và trạng thái hiển thị bài viết, xử lý báo cáo, xem nhật ký thao tác. Báo cáo bài viết có thể gửi bởi người dùng đã đăng nhập.
+- **FR-50 (Hiện có một phần):** Admin có thể ghi nhận đối soát giao dịch riêng biệt với trạng thái payment provider. Việc ghi nhận thủ công không tự thay đổi trạng thái thanh toán; Stripe chỉ được đánh dấu đã xác minh sau webhook có chữ ký hợp lệ. Danh sách quản trị được giới hạn tối đa 200 bản ghi; phân trang và xuất báo cáo vẫn cần hoàn thiện.
+
+### 5.10 Suất chiếu và đặt vé phim
+
+- **FR-51 (Hiện có):** Khách xem các suất chiếu phim sắp tới được công bố, gồm thời gian, rạp/địa điểm, địa chỉ, giá và số vé còn.
+- **FR-52 (Hiện có):** Người dùng đăng nhập đặt tối đa 10 vé/suất; backend khóa suất chiếu và kiểm tra sức chứa trong transaction, không cho đặt trùng khi còn reservation.
+- **FR-53 (Hiện có):** Người dùng chỉ hủy reservation của mình; vé được trả lại sức chứa và admin có thể tạo, sửa hoặc ẩn suất chiếu.
 
 ---
 
@@ -362,7 +368,7 @@ API dùng JSON, ngoại trừ upload dùng `multipart/form-data`. Lỗi tối th
 
 ### 10.1 Thực thể chính
 
-`users`, `film_labs`, `lab_services`, `lab_packages`, `orders`, `order_items`, `transactions`, `products`, `marketplace_orders`, `reviews`, `messages`, `posts`, `comments`, `uploads`, `favorites`, `workshops`, `photowalks`, `event_registrations` và `rag_documents`.
+`users`, `film_labs`, `lab_services`, `lab_packages`, `orders`, `order_items`, `transactions`, `products`, `marketplace_orders`, `film_screenings`, `ticket_reservations`, `reviews`, `messages`, `posts`, `comments`, `uploads`, `favorites`, `workshops`, `photowalks`, `event_registrations` và `rag_documents`.
 
 ### 10.2 Quan hệ và toàn vẹn
 
@@ -568,10 +574,10 @@ Bảng dưới đây là hợp đồng tối thiểu cho từng FR. `Input` là 
 
 | ID | Ưu tiên | Input | Validation | Output | Error |
 |---|---|---|---|---|---|
-| FR-01 | P0 | name, email, password, role tùy chọn | Bắt buộc; email hợp lệ; role hợp lệ | User public + JWT | 400 thiếu/sai input; 409 email trùng |
+| FR-01 | P0 | name, email, password; phone/location tùy chọn | Bắt buộc; email hợp lệ; role hợp lệ | User public + JWT | 400 thiếu/sai input; 409 email trùng |
 | FR-02 | P0 | Email/password đăng ký hoặc đăng nhập | Email duy nhất; password được bcrypt hash | Token và user public | 401/409 xác thực hoặc trùng |
 | FR-03 | P0 | Email, password | Đủ trường; so khớp hash | JWT, user public | 400 thiếu; 401 sai thông tin |
-| FR-04 | P0 | JWT; name, phone, avatarUrl | JWT hợp lệ; name bắt buộc; ownership | Profile đã cập nhật | 401; 404 user; 400 input |
+| FR-04 | P0 | JWT; name, phone, avatarUrl, location, bio | JWT hợp lệ; name bắt buộc; ownership | Profile được lưu trong PostgreSQL và đọc lại được sau restart | 401; 404 user; 400 input |
 | FR-05 | P1 | Email reset | Email format; rate limit; không lộ tồn tại | Thông báo gửi reset chung | 400; 429; lỗi provider 503 |
 | FR-06 | P1 | OAuth authorization code | State, redirect URI, provider token hợp lệ | Session/JWT liên kết user | 400/401/409 OAuth |
 | FR-07 | P0 | labId hoặc request danh sách | UUID tồn tại; chỉ trả dữ liệu public | Lab detail/list + services/packages/reviews | 404; 500 |
@@ -644,6 +650,11 @@ Bảng dưới đây là hợp đồng tối thiểu cho từng FR. `Input` là 
 | `users.email` | String | Có | Unique, email hợp lệ |
 | `users.passwordHash` | String | Có | Bcrypt hash, không public |
 | `users.role` | Enum | Có | photographer/lab_owner/seller/admin |
+| `users.name` | String | Có | Tên hiển thị |
+| `users.phone` | String | Không | Số điện thoại liên hệ |
+| `users.avatarUrl` | String | Không | URL avatar |
+| `users.bio` | Text | Không | Tiểu sử người dùng |
+| `users.location` | String | Không | Địa điểm người dùng |
 | `film_labs.ownerId` | UUID | Có | FK tới users |
 | `film_labs.rating` | Decimal | Có | Điểm trung bình, không âm, tối đa 5 |
 | `lab_services.price` | Decimal | Có | Giá không âm; không nhận giá client khi checkout |
@@ -1241,17 +1252,19 @@ Các đặc tả mở rộng: 18. Permission Matrix; 19. Requirement Priority; 2
 | GET/PATCH | `/api/lab-management/*` | Owner/Admin | Lab operations |
 | GET/POST/PUT/DELETE | `/api/marketplace/listings*` | Mixed | Listings |
 | POST/PATCH | `/api/marketplace/orders*` | JWT | Marketplace orders |
-| GET/POST | `/api/community/posts*` | Mixed | Posts/comments |
+| GET/POST/PATCH | `/api/film-screenings*` | Mixed | Public showtimes; admin manages screenings |
+| GET/POST/DELETE | `/api/film-screenings/*reservations*` | JWT | Reserve, view, and cancel tickets |
+| GET/POST | `/api/community/posts*`, `/api/community/reports` | Mixed/JWT | Posts/comments and violation reports |
 | GET/POST/PATCH | `/api/events/*` | Mixed | Event/registration |
 | POST/GET/DELETE/PATCH | `/api/uploads/*` | JWT | Upload/archive |
 | POST | `/api/ai/recommendations`, `/api/ai/semantic-search` | Mixed | AI recommendation/search |
 | GET/POST | `/api/reviews`, `/api/messages` | JWT | Review/message |
 | GET/POST/PATCH | `/api/transactions`, `/api/payments` | JWT/provider | Transaction/payment |
-| GET/POST/PATCH | `/api/admin/*` | Admin | Administration |
+| GET/POST/PATCH | `/api/admin/*` | Admin | Admin workspace, role management, moderation, event management, payment review, and audit log |
 
 ## Phụ lục B - Database Schema
 
-Các bảng chính: `users`, `film_labs`, `lab_services`, `lab_packages`, `orders`, `order_items`, `transactions`, `products`, `marketplace_orders`, `reviews`, `messages`, `posts`, `comments`, `uploads`, `favorites`, `workshops`, `photowalks`, `event_registrations`, `rag_documents`. Chi tiết cột, enum, khóa ngoại và index tham chiếu [docs/database-schema.md](database-schema.md).
+Các bảng chính: `users`, `film_labs`, `lab_services`, `lab_packages`, `orders`, `order_items`, `transactions`, `products`, `marketplace_orders`, `film_screenings`, `ticket_reservations`, `reviews`, `messages`, `posts`, `comments`, `uploads`, `favorites`, `workshops`, `photowalks`, `event_registrations`, `content_reports`, `admin_audit_logs`, `rag_documents`. Chi tiết cột, enum, khóa ngoại và index tham chiếu [docs/database-schema.md](database-schema.md).
 
 ## Phụ lục C - Glossary
 

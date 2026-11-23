@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { fetchJson } from '../../lib/api';
-import { getToken, authHeaders } from '../../lib/auth';
+import { getToken, authHeaders, setUser } from '../../lib/auth';
 
 export default function ProfileEdit() {
   const router = useRouter();
@@ -39,11 +39,18 @@ export default function ProfileEdit() {
     setError('');
     setSaving(true);
     try {
-      await fetchJson('/api/auth/profile', {
+      const updatedProfile = await fetchJson('/api/auth/profile', {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profile.name, phone: profile.phone, avatarUrl: profile.avatarUrl }),
+        body: JSON.stringify({
+          name: profile.name,
+          phone: profile.phone,
+          avatarUrl: profile.avatarUrl,
+          location: profile.location,
+          bio: profile.bio,
+        }),
       });
+      setUser(updatedProfile);
       setMessage('Profile updated successfully.');
       router.push('/profile');
     } catch (err) {
@@ -111,7 +118,20 @@ export default function ProfileEdit() {
           </label>
           <label className="form-control">
             <span>Location</span>
-            <input className="input" value={profile.location || ''} readOnly />
+            <input
+              className="input"
+              value={profile.location || ''}
+              onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+            />
+          </label>
+          <label className="form-control">
+            <span>Biography</span>
+            <textarea
+              className="input textarea"
+              rows={4}
+              value={profile.bio || ''}
+              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+            />
           </label>
           {message && <div className="callout">{message}</div>}
           {error && <div className="form-error">{error}</div>}

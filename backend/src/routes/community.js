@@ -1,8 +1,11 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Post, Comment, User } = require('../models');
+const { Post, Comment, User, Product, Workshop, Photowalk, ContentReport } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
+
+const reportTargets = { post: Post, comment: Comment, product: Product, workshop: Workshop, photowalk: Photowalk };
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 router.get('/posts', async (req, res) => {
   try {
@@ -79,6 +82,35 @@ router.post('/posts/:id/comments', authenticateToken, async (req, res) => {
       content,
     });
     res.status(201).json(comment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/reports', authenticateToken, async (req, res) => {
+  try {
+    const { targetType, targetId, reason } = req.body || {};
+    const TargetModel = Object.prototype.hasOwnProperty.call(reportTargets, targetType)
+      ? reportTargets[targetType]
+      : null;
+    if (!TargetModel || typeof targetId !== 'string' || !uuidPattern.test(targetId)
+      || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ error: 'targetType, targetId, and a reason are required' });
+    }
+    if (reason.trim().length > 2000) return res.status(400).json({ error: 'Reason must be 2000 characters or fewer' });
+    const target = await TargetModel.findByPk(targetId);
+    if (!target) return res.status(404).json({ error: 'Reported content not found' });
+    const existing = await ContentReport.findOne({
+      where: { reporterId: req.user.id, targetType, targetId, status: { [Op.in]: ['open', 'reviewing'] } },
+    });
+    if (existing) return res.status(409).json({ error: 'You already have an open report for this content' });
+    const report = await ContentReport.create({
+      reporterId: req.user.id,
+      targetType,
+      targetId,
+      reason: reason.trim(),
+    });
+    res.status(201).json(report);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
