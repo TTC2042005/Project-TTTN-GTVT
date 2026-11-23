@@ -36,6 +36,14 @@
 
 On Windows with Docker Desktop, `.\dev-start.ps1` starts the app and opens it in a browser. Demo data is not seeded automatically; use `.\dev-start.ps1 -SeedDemoData` only when you want the sample records.
 
+## API testing with VS Code REST Client
+
+Install the recommended `REST Client` extension if VS Code does not prompt you automatically. Open [`api-tests.http`](./api-tests.http), set `REST_CLIENT_EMAIL` and `REST_CLIENT_PASSWORD` in the ignored root `.env` to a unique local test account, then send requests using **Send Request** above each request. To make a folder Camera/Lens item purchasable, an admin or seller must first publish a real database listing with its exact catalog title and verified `REST_PRODUCT_*` price/stock values. To publish showtimes, set `REST_ADMIN_EMAIL` and `REST_ADMIN_PASSWORD` for a local admin account and enter verified film/venue/date/capacity/price values in the `REST_SCREENING_*` fields; the examples do not invent or seed inventory or schedules.
+
+Run the registration request once; on later runs, skip it and use login. The login request captures its JWT for the profile requests. These requests write a persistent test account/profile to the local database; use a test account, not a production account.
+
+The admin section in `api-tests.http` covers the dashboard, user/Film Lab, Marketplace, showtime/event/content, report, transaction, and audit-log endpoints. Send the admin login request first; admin-only requests should succeed with its token, while the included authorization checks should return `401` without a token and `403` with a normal user token. Set the `REST_ADMIN_*` IDs and `REST_EVENT_*` values in `.env` before running the optional mutation examples. Those requests modify or create persistent records, so use local test data only; payment verification requires an actual pending test payment.
+
 ## Required environment variables
 
 Backend:

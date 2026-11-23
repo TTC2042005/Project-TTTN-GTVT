@@ -1,0 +1,271 @@
+@baseUrl = http://localhost:4000
+@testEmail = {{$dotenv REST_CLIENT_EMAIL}}
+@testPassword = {{$dotenv REST_CLIENT_PASSWORD}}
+@token = {{login.response.body.token}}
+@adminEmail = {{$dotenv REST_ADMIN_EMAIL}}
+@adminPassword = {{$dotenv REST_ADMIN_PASSWORD}}
+@adminToken = {{adminLogin.response.body.token}}
+
+### Backend health
+GET {{baseUrl}}/
+
+### List film labs
+GET {{baseUrl}}/api/film-labs
+
+### Register a local test account (run once with a unique email)
+# @name register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "REST Client Test",
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "phone": "0900000000",
+  "location": "Ha Noi"
+}
+
+### Login (run after registration, or use an existing local account)
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+### Get the authenticated user's profile
+GET {{baseUrl}}/api/auth/profile
+Authorization: Bearer {{token}}
+
+### Update the authenticated user's profile
+PUT {{baseUrl}}/api/auth/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "REST Client Test Updated",
+  "phone": "0911111111",
+  "location": "Da Lat",
+  "bio": "Profile update from VS Code REST Client"
+}
+
+### List Marketplace listings
+GET {{baseUrl}}/api/marketplace/listings
+
+### Public upcoming film screenings
+GET {{baseUrl}}/api/film-screenings?filmTitle={{$dotenv REST_SCREENING_FILM_TITLE}}
+
+### Login as a local admin to manage real showtimes
+# @name adminLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### Admin API access check (expect 401 without a token)
+GET {{baseUrl}}/api/admin/overview
+
+### Admin API access check (expect 403 for a normal user)
+GET {{baseUrl}}/api/admin/overview
+Authorization: Bearer {{token}}
+
+### Admin mutation access check (expect 403; this request does not change data)
+PATCH {{baseUrl}}/api/admin/users/00000000-0000-0000-0000-000000000000/role
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role": "admin"
+}
+
+### Admin dashboard overview
+GET {{baseUrl}}/api/admin/overview
+Authorization: Bearer {{adminToken}}
+
+### Admin user management
+GET {{baseUrl}}/api/admin/users
+Authorization: Bearer {{adminToken}}
+
+### Search users by email/name and optional role
+GET {{baseUrl}}/api/admin/users?q={{$dotenv REST_CLIENT_EMAIL}}&role=photographer
+Authorization: Bearer {{adminToken}}
+
+### Admin Film Lab and order management
+GET {{baseUrl}}/api/admin/labs
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/orders
+Authorization: Bearer {{adminToken}}
+
+### Admin Marketplace listing and order management
+GET {{baseUrl}}/api/admin/marketplace/listings
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/marketplace/orders
+Authorization: Bearer {{adminToken}}
+
+### Admin showtimes, events, and content management
+GET {{baseUrl}}/api/admin/film-screenings
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/events
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/content/posts
+Authorization: Bearer {{adminToken}}
+
+### Admin reports, payment verification queue, and audit history
+GET {{baseUrl}}/api/admin/reports
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/transactions
+Authorization: Bearer {{adminToken}}
+
+GET {{baseUrl}}/api/admin/audit-logs
+Authorization: Bearer {{adminToken}}
+
+### Change a test user's role (set REST_ADMIN_TARGET_USER_ID; persistent change)
+PATCH {{baseUrl}}/api/admin/users/{{$dotenv REST_ADMIN_TARGET_USER_ID}}/role
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "role": "photographer"
+}
+
+### Moderate a test Marketplace listing (set REST_ADMIN_LISTING_ID; persistent change)
+PATCH {{baseUrl}}/api/admin/marketplace/listings/{{$dotenv REST_ADMIN_LISTING_ID}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "moderationStatus": "approved"
+}
+
+### Create an event from real test details (set REST_EVENT_*; creates a database record)
+# @name createAdminEvent
+POST {{baseUrl}}/api/admin/events
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "eventType": "workshop",
+  "title": "{{$dotenv REST_EVENT_TITLE}}",
+  "description": "{{$dotenv REST_EVENT_DESCRIPTION}}",
+  "location": "{{$dotenv REST_EVENT_LOCATION}}",
+  "eventDate": "{{$dotenv REST_EVENT_DATE}}",
+  "capacity": {{$dotenv REST_EVENT_CAPACITY}},
+  "isPublished": false
+}
+
+### Update a test event (set REST_ADMIN_EVENT_TYPE and REST_ADMIN_EVENT_ID)
+PATCH {{baseUrl}}/api/admin/events/{{$dotenv REST_ADMIN_EVENT_TYPE}}/{{$dotenv REST_ADMIN_EVENT_ID}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "description": "{{$dotenv REST_EVENT_DESCRIPTION}}"
+}
+
+### Change visibility of a test post (set REST_ADMIN_POST_ID; persistent change)
+PATCH {{baseUrl}}/api/admin/content/posts/{{$dotenv REST_ADMIN_POST_ID}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "visibility": "private"
+}
+
+### Review a test report (set REST_ADMIN_REPORT_ID; persistent change)
+PATCH {{baseUrl}}/api/admin/reports/{{$dotenv REST_ADMIN_REPORT_ID}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "reviewing"
+}
+
+### Verify a pending bank payment (set REST_ADMIN_ORDER_ID and REST_ADMIN_TRANSACTION_ID)
+# This changes the order and transaction; only use a real pending test payment.
+POST {{baseUrl}}/api/orders/{{$dotenv REST_ADMIN_ORDER_ID}}/verify-payment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "action": "approve",
+  "transactionId": "{{$dotenv REST_ADMIN_TRANSACTION_ID}}",
+  "note": "Local REST Client verification test"
+}
+
+### Reject a pending bank payment instead (use separate pending test IDs; do not approve and reject the same payment)
+POST {{baseUrl}}/api/orders/{{$dotenv REST_ADMIN_ORDER_ID}}/verify-payment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "action": "reject",
+  "transactionId": "{{$dotenv REST_ADMIN_TRANSACTION_ID}}",
+  "note": "Local REST Client rejection test"
+}
+
+### Create a real Camera/Lens listing (fill REST_PRODUCT_* with verified data first)
+# @name createMarketplaceListing
+POST {{baseUrl}}/api/marketplace/listings
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "{{$dotenv REST_PRODUCT_TITLE}}",
+  "category": "{{$dotenv REST_PRODUCT_CATEGORY}}",
+  "condition": "{{$dotenv REST_PRODUCT_CONDITION}}",
+  "price": {{$dotenv REST_PRODUCT_PRICE}},
+  "description": "{{$dotenv REST_PRODUCT_DESCRIPTION}}",
+  "stock": {{$dotenv REST_PRODUCT_STOCK}}
+}
+
+### Publish a real screening (set REST_SCREENING_* values in .env before sending)
+# @name createScreening
+POST {{baseUrl}}/api/film-screenings
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "filmTitle": "{{$dotenv REST_SCREENING_FILM_TITLE}}",
+  "eventDate": "{{$dotenv REST_SCREENING_DATE}}",
+  "venueName": "{{$dotenv REST_SCREENING_VENUE}}",
+  "venueAddress": "{{$dotenv REST_SCREENING_ADDRESS}}",
+  "capacity": {{$dotenv REST_SCREENING_CAPACITY}},
+  "ticketPrice": {{$dotenv REST_SCREENING_PRICE}}
+}
+
+### Reserve one ticket (requires the user login request above)
+# @name reserve
+POST {{baseUrl}}/api/film-screenings/{{createScreening.response.body.id}}/reservations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quantity": 1
+}
+
+### View your ticket reservations
+GET {{baseUrl}}/api/film-screenings/my-reservations
+Authorization: Bearer {{token}}
+
+### Cancel the reservation created above
+DELETE {{baseUrl}}/api/film-screenings/reservations/{{reserve.response.body.id}}
+Authorization: Bearer {{token}}
+
+### Ask the AI assistant
+POST {{baseUrl}}/api/ai/rag
+Content-Type: application/json
+
+{
+  "question": "Website hiện có những dịch vụ Film Lab nào?",
+  "history": []
+}
