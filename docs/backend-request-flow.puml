@@ -1,0 +1,62 @@
+@startuml Backend_Request_Flow
+title Luồng xử lý một API có xác thực
+autonumber
+hide footbox
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+
+actor "Người dùng" as User
+boundary "Frontend\nNext.js" as Frontend
+control "Express app\nsrc/index.js" as App
+participant "Router\nsrc/routes" as Router
+participant "JWT middleware" as Auth
+participant "Sequelize models" as Models
+database "PostgreSQL" as DB
+participant "Service (nếu cần)" as Service
+participant "Dịch vụ ngoài*" as External
+
+User -> Frontend: Thực hiện thao tác
+Frontend -> App: HTTP request\nJSON + Bearer JWT
+App -> App: CORS, parse request body
+App -> Router: Chuyển đến endpoint /api/*
+Router -> Auth: authenticateToken
+Auth -> Auth: Kiểm tra JWT
+
+alt Thiếu token / token không hợp lệ
+  Auth --> Router: Trả lỗi 401 / 403
+  Router --> App: Lỗi xác thực
+  App --> Frontend: HTTP error + JSON
+  Frontend --> User: Hiển thị thông báo
+else Token hợp lệ
+  Auth -> Models: Tìm tài khoản hiện tại
+  Models -> DB: SELECT users
+  DB --> Models: Tài khoản và vai trò
+  Models --> Auth: User
+  Auth --> Router: Gán req.user
+
+  Router -> Auth: Kiểm tra vai trò (nếu route yêu cầu)
+  alt Không đủ quyền
+    Auth --> Router: Trả lỗi 403
+    Router --> App: Lỗi phân quyền
+    App --> Frontend: HTTP 403 + JSON
+    Frontend --> User: Hiển thị thông báo
+  else Được phép tiếp tục
+    Router -> Models: Kiểm tra nghiệp vụ,\nđọc / ghi dữ liệu
+    Models -> DB: SQL query / transaction
+    DB --> Models: Kết quả
+    Models --> Router: Dữ liệu đã xử lý
+
+    opt Nghiệp vụ cần tích hợp bên ngoài
+      Router -> Service: Gọi dịch vụ phụ trợ
+      Service -> External: Gửi yêu cầu
+      External --> Service: Kết quả
+      Service --> Router: Trả kết quả tích hợp
+    end
+
+    Router --> App: HTTP response + JSON
+    App --> Frontend: Kết quả
+    Frontend --> User: Hiển thị dữ liệu
+  end
+end
+
+@enduml

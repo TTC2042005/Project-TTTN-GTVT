@@ -1,0 +1,47 @@
+@startuml Activity_API_Request_Flow
+title Luồng xử lý API - Film Lab Ecosystem
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người dùng|
+start
+:Thực hiện thao tác;
+
+|Frontend Next.js|
+:Gửi HTTP request\n(JSON, JWT nếu cần);
+
+|Backend Express|
+:Áp dụng CORS và parse request;
+:Chọn router theo endpoint /api/*;
+:Kiểm tra JWT, quyền và dữ liệu\n(nếu endpoint yêu cầu);
+if (Request hợp lệ?) then (Có)
+  :Xử lý nghiệp vụ;
+  |Sequelize / PostgreSQL|
+  :Đọc hoặc ghi dữ liệu;
+  |Backend Express|
+  if (Cần dịch vụ ngoài?) then (Có)
+    :Gọi Stripe, OAuth, AI\nhoặc lưu trữ tệp;
+  else (Không)
+  endif
+  :Trả HTTP 2xx và JSON;
+else (Không)
+  :Trả HTTP 4xx/5xx và lỗi;
+endif
+
+|Frontend Next.js|
+:Đọc response;
+:fetchJson ném Error nếu HTTP lỗi;
+
+|Người dùng|
+:Xem kết quả hoặc thông báo lỗi;
+stop
+
+legend bottom
+  Stripe webhook đi riêng: xác minh chữ ký,
+  cập nhật đơn/giao dịch rồi trả kết quả cho Stripe.
+endlegend
+@enduml

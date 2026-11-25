@@ -8,7 +8,7 @@
 
 | Hạng mục | Hiện trạng |
 |---|---|
-| Tài khoản và vai trò | Đăng ký/đăng nhập/profile JWT; đăng ký không được tự cấp `admin`. Chưa có OAuth, xác minh email, reset mật khẩu thật hoặc rate limit. |
+| Tài khoản và vai trò | Đăng ký/đăng nhập/profile JWT; Google và Facebook OAuth 2.0 khi cấu hình provider credentials. Đăng ký không được tự cấp `admin`; xác minh email, reset mật khẩu thật và rate limit chưa có. |
 | Film lab / booking | Tìm/lọc, service/package, đơn hàng, lab dashboard và trạng thái SSE. Đơn lấy giá từ DB và kiểm tra lab/service/package. |
 | Thanh toán | Có checkout Stripe/QR ở mức tích hợp cơ bản; webhook xác minh chữ ký khi đã cấu hình secret. Không nên bật thanh toán live trước khi test idempotency, refund, currency và đối soát. |
 | Marketplace | Listing, favorite, review và order; tạo order/giảm stock có transaction + row lock. Seller listing chờ admin duyệt trước khi hiển thị; admin listing được đăng trực tiếp. |
@@ -50,6 +50,8 @@ Backend:
 - DATABASE_URL
 - JWT_SECRET
 - FRONTEND_URL
+- GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_CALLBACK_URL (optional)
+- FACEBOOK_APP_ID / FACEBOOK_APP_SECRET / FACEBOOK_CALLBACK_URL (optional)
 - STRIPE_SECRET_KEY (optional)
 - STRIPE_WEBHOOK_SECRET (required to accept Stripe webhooks)
 - BANK_QR_URL / BANK_ACCOUNT_NAME / BANK_ACCOUNT_NUMBER / BANK_NAME (optional)
@@ -60,6 +62,8 @@ Backend:
 - AWS_SECRET_ACCESS_KEY (optional)
 - AWS_S3_BUCKET (optional)
 - AWS_REGION (optional)
+
+To enable social login, create OAuth credentials in Google Cloud Console and a Facebook Login app, then set the provider IDs/secrets and exact callback URLs above. For local development, register `http://localhost:4000/api/auth/google/callback` and `http://localhost:4000/api/auth/facebook/callback` with the providers. Do not commit provider secrets. OAuth sign-in creates a photographer account; an existing email is not automatically linked to avoid account takeover.
 
 ## Demo accounts
 

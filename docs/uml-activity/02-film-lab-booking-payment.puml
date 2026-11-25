@@ -1,0 +1,63 @@
+@startuml Activity_FilmLab_Booking_Payment
+title Biểu đồ hoạt động - Đặt dịch vụ Film Lab và thanh toán
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người mua|
+start
+:Tìm Film Lab;
+:Chọn lab, dịch vụ/package và số lượng;
+:Gửi yêu cầu đặt dịch vụ;
+
+|Backend|
+:Kiểm tra người dùng và dữ liệu đơn;
+:Đọc dịch vụ/package và giá từ cơ sở dữ liệu;
+if (Lab và các lựa chọn hợp lệ?) then (Có)
+  :Tính tổng tiền;
+  :Tạo đơn hàng và transaction chờ thanh toán;
+else (Không)
+  |Người mua|
+  :Hiển thị lỗi dữ liệu đơn;
+  stop
+endif
+
+|Người mua|
+:Chọn phương thức thanh toán;
+if (Thanh toán bằng Stripe?) then (Có)
+  |Backend|
+  :Tạo phiên thanh toán Stripe;
+  |Stripe|
+  :Người mua hoàn tất thanh toán;
+  :Gửi kết quả qua webhook đã xác thực;
+  |Backend|
+  if (Thanh toán thành công?) then (Có)
+    :Cập nhật transaction và đơn hàng;
+  else (Không)
+    :Giữ đơn ở trạng thái chưa thanh toán;
+  endif
+else (Bank QR)
+  |Backend|
+  :Trả thông tin chuyển khoản/QR;
+  |Người mua|
+  :Chuyển khoản và gửi minh chứng;
+  |Backend|
+  :Lưu minh chứng và chờ xác minh;
+  |Quản trị viên|
+  :Kiểm tra minh chứng;
+  if (Minh chứng hợp lệ?) then (Có)
+    |Backend|
+    :Đánh dấu giao dịch đã xác minh;
+  else (Không)
+    |Backend|
+    :Từ chối minh chứng và giữ đơn chưa thanh toán;
+  endif
+endif
+
+|Người mua|
+:Xem trạng thái đơn hàng;
+stop
+@enduml

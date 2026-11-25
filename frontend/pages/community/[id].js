@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { fetchJson } from '../../lib/api';
+import { API_BASE, fetchJson } from '../../lib/api';
 import { authHeaders, getToken } from '../../lib/auth';
 
 export default function CommunityDetail() {
@@ -75,6 +75,13 @@ export default function CommunityDetail() {
                 <span>{post.tags?.join(', ') || 'None'}</span>
               </div>
               <p>{post.body}</p>
+              {post.imageUrls?.length > 0 && (
+                <div className="post-image-row">
+                  {post.imageUrls.map((imageUrl) => (
+                    <img key={imageUrl} src={`${API_BASE}${imageUrl}`} alt={`Ảnh trong bài viết: ${post.title}`} />
+                  ))}
+                </div>
+              )}
             </div>
 
             <aside className="detail-panel">

@@ -23,6 +23,12 @@ module.exports = (sequelize) => {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
     },
+    imageUrls: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: false,
+      defaultValue: [],
+      field: 'image_urls',
+    },
     visibility: {
       type: DataTypes.ENUM('public', 'private', 'draft'),
       allowNull: false,

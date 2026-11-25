@@ -1,0 +1,164 @@
+@startuml FilmLab_Report_ERD
+title ERD các bảng chính theo báo cáo
+left to right direction
+hide circle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam entity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  FontColor #24343A
+}
+
+package "Tài khoản và Film Lab" {
+  entity "users" as users {
+    * id : UUID <<PK>>
+  }
+  entity "film_labs" as film_labs {
+    * id : UUID <<PK>>
+    owner_id : UUID <<FK>>
+  }
+  entity "lab_services" as lab_services {
+    * id : UUID <<PK>>
+    lab_id : UUID <<FK>>
+  }
+  entity "lab_packages" as lab_packages {
+    * id : UUID <<PK>>
+    lab_id : UUID <<FK>>
+  }
+}
+
+package "Đơn dịch vụ" {
+  entity "orders" as orders {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    lab_id : UUID <<FK>>
+  }
+  entity "order_items" as order_items {
+    * id : UUID <<PK>>
+    order_id : UUID <<FK>>
+    item_id : UUID
+  }
+  entity "transactions" as transactions {
+    * id : UUID <<PK>>
+    order_id : UUID <<FK>>
+    verified_by : UUID <<FK>>
+  }
+}
+
+package "Marketplace" {
+  entity "products" as products {
+    * id : UUID <<PK>>
+    seller_id : UUID <<FK>>
+  }
+  entity "marketplace_orders" as marketplace_orders {
+    * id : UUID <<PK>>
+    buyer_id : UUID <<FK>>
+    seller_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+    proof_upload_id : UUID <<FK>>
+  }
+  entity "favorites" as favorites {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+  }
+  entity "reviews" as reviews {
+    * id : UUID <<PK>>
+    author_id : UUID <<FK>>
+    target_id : UUID
+  }
+}
+
+package "Cộng đồng" {
+  entity "posts" as posts {
+    * id : UUID <<PK>>
+    author_id : UUID <<FK>>
+  }
+  entity "comments" as comments {
+    * id : UUID <<PK>>
+    post_id : UUID <<FK>>
+    author_id : UUID <<FK>>
+  }
+  entity "messages" as messages {
+    * id : UUID <<PK>>
+    sender_id : UUID <<FK>>
+    recipient_id : UUID <<FK>>
+  }
+}
+
+package "Sự kiện" {
+  entity "workshops" as workshops {
+    * id : UUID <<PK>>
+    organizer_id : UUID <<FK>>
+  }
+  entity "photowalks" as photowalks {
+    * id : UUID <<PK>>
+    organizer_id : UUID <<FK>>
+  }
+  entity "event_registrations" as event_registrations {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    event_id : UUID
+  }
+}
+
+package "Hình ảnh và AI" {
+  entity "uploads" as uploads {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    url : TEXT
+  }
+  entity "rag_documents" as rag_documents {
+    * id : UUID <<PK>>
+    content : TEXT
+  }
+}
+
+users "1" -- "0..*" film_labs : owns
+film_labs "1" -- "0..*" lab_services : provides
+film_labs "1" -- "0..*" lab_packages : offers
+
+users "1" -- "0..*" orders : places
+film_labs "1" -- "0..*" orders : receives
+orders "1" -- "0..*" order_items : contains
+orders "0..1" -- "0..*" transactions : payment
+users "0..1" -- "0..*" transactions : verifies
+
+users "1" -- "0..*" products : sells
+users "1" -- "0..*" marketplace_orders : buyer
+users "1" -- "0..*" marketplace_orders : seller
+products "1" -- "0..*" marketplace_orders : ordered
+users "1" -- "0..*" favorites : saves
+products "1" -- "0..*" favorites : favorited
+users "1" -- "0..*" reviews : writes
+uploads "0..1" -- "0..*" marketplace_orders : payment proof
+
+users "1" -- "0..*" posts : writes
+posts "1" -- "0..*" comments : has
+users "1" -- "0..*" comments : comments
+users "1" -- "0..*" messages : sender
+users "1" -- "0..*" messages : recipient
+
+users "1" -- "0..*" workshops : organizes
+users "1" -- "0..*" photowalks : organizes
+users "1" -- "0..*" event_registrations : registers
+users "1" -- "0..*" uploads : owns
+
+note bottom of order_items
+  item_id tham chiếu service hoặc package,
+  không có FK trực tiếp.
+end note
+
+note bottom of event_registrations
+  event_id tham chiếu workshop hoặc photowalk,
+  không có FK trực tiếp.
+end note
+
+note bottom of reviews
+  target_id có thể trỏ tới nhiều loại đối tượng,
+  không có FK trực tiếp.
+end note
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml Activity_Image_Upload_Review
+title Biểu đồ hoạt động - Tải ảnh và nhận xét chất lượng
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người dùng|
+start
+:Chọn ảnh và gửi yêu cầu tải lên;
+
+|Backend|
+:Xác thực người dùng;
+:Kiểm tra định dạng và kích thước ảnh;
+if (Ảnh hợp lệ?) then (Có)
+  :Tính các chỉ số chất lượng cơ bản;
+  :Lưu ảnh và metadata;
+  :Lưu mặc định ở chế độ riêng tư;
+else (Không)
+  |Người dùng|
+  :Hiển thị lỗi định dạng hoặc kích thước;
+  stop
+endif
+
+|Người dùng|
+:Yêu cầu nhận xét ảnh;
+if (Đồng ý gửi ảnh tới AI bên ngoài?) then (Có)
+  |Backend|
+  if (AI provider đã được cấu hình?) then (Có)
+    :Gửi ảnh theo consent tới AI provider;
+    :Nhận nhận xét từ AI;
+  else (Không)
+    :Tạo nhận xét dự phòng từ chỉ số chất lượng;
+  endif
+else (Không)
+  |Backend|
+  :Tạo nhận xét dự phòng từ chỉ số chất lượng;
+endif
+
+|Người dùng|
+:Xem kết quả nhận xét;
+stop
+@enduml

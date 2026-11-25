@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const router = express.Router();
-const { Post, Comment, User, Product, Workshop, Photowalk, ContentReport } = require('../models');
+const { Post, Comment, User, Upload, Product, Workshop, Photowalk, ContentReport, sequelize } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 
 const reportTargets = { post: Post, comment: Comment, product: Product, workshop: Workshop, photowalk: Photowalk };
@@ -53,20 +53,53 @@ router.get('/posts/:id', async (req, res) => {
 
 router.post('/posts', authenticateToken, async (req, res) => {
   try {
-    const { title, body, tags, visibility } = req.body;
-    if (!title || !body) {
+    const { title, body, tags, visibility, imageIds = [] } = req.body || {};
+    if (typeof title !== 'string' || !title.trim() || typeof body !== 'string' || !body.trim()) {
       return res.status(400).json({ error: 'Title and body are required' });
     }
+    if (!Array.isArray(imageIds) || imageIds.length > 5 || imageIds.some((id) => typeof id !== 'string')) {
+      return res.status(400).json({ error: 'A post can include up to 5 uploaded images' });
+    }
+    if (tags != null && (!Array.isArray(tags) || tags.some((tag) => typeof tag !== 'string'))) {
+      return res.status(400).json({ error: 'Tags must be a list of strings' });
+    }
+    if (visibility != null && !['public', 'private', 'draft'].includes(visibility)) {
+      return res.status(400).json({ error: 'Unsupported post visibility' });
+    }
+    if (imageIds.length && visibility && visibility !== 'public') {
+      return res.status(400).json({ error: 'Images can only be shared in public posts' });
+    }
 
-    const post = await Post.create({
-      authorId: req.user.id,
-      title,
-      body,
-      tags,
-      visibility: visibility || 'public',
-      publishedAt: visibility === 'public' ? new Date() : null,
+    const uploads = imageIds.length
+      ? await Upload.findAll({ where: { id: [...new Set(imageIds)], userId: req.user.id } })
+      : [];
+    if (uploads.length !== new Set(imageIds).size) {
+      return res.status(400).json({ error: 'One or more selected images are unavailable' });
+    }
+
+    const postVisibility = visibility || 'public';
+    const post = await sequelize.transaction(async (transaction) => {
+      const createdPost = await Post.create({
+        authorId: req.user.id,
+        title: title.trim(),
+        body: body.trim(),
+        tags: tags?.map((tag) => tag.trim()).filter(Boolean) || [],
+        imageUrls: uploads.map((upload) => `/api/uploads/public/${upload.id}/file`),
+        visibility: postVisibility,
+        publishedAt: postVisibility === 'public' ? new Date() : null,
+      }, { transaction });
+      if (uploads.length) {
+        await Upload.update(
+          { shared: true },
+          { where: { id: uploads.map((upload) => upload.id), userId: req.user.id }, transaction },
+        );
+      }
+      return createdPost;
     });
-    res.status(201).json(post);
+    const response = await Post.findByPk(post.id, {
+      include: [{ model: User, as: 'author', attributes: ['id', 'name'] }],
+    });
+    res.status(201).json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

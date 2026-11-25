@@ -1,120 +1,34 @@
-@startuml FilmLab_UseCases_Overview
-title Sơ đồ Use Case tổng quan - Film Lab Ecosystem
+@startuml
+title Use Case tổng quan
 left to right direction
-skinparam shadowing false
-skinparam packageStyle rectangle
-skinparam actorStyle stickman
-skinparam usecase {
-  BackgroundColor #F4F7F5
-  BorderColor #2D6B65
-  ArrowColor #33464B
-}
-skinparam rectangle {
-  BorderColor #2D6B65
-  FontColor #24343A
-}
+skinparam linetype ortho
+skinparam nodesep 35
+skinparam ranksep 35
 
-actor Guest
-actor User
-actor Photographer
-actor "Lab Owner" as LabOwner
-actor Seller
-actor Admin
-actor "Payment Provider" as Payment
-actor "AI Provider" as AIProvider
-actor "Object Storage" as Storage
-
-Photographer -|> User
-LabOwner -|> User
-Seller -|> User
-Admin -|> User
+actor "Khách" as Guest
+actor "Photographer" as Photographer
+actor "Lab Owner / Seller" as Business
+actor "Admin" as Admin
 
 rectangle "Film Lab Ecosystem" {
-  package "Tài khoản và xác thực" {
-    usecase "Đăng ký / Đăng nhập" as Auth
-    usecase "Quản lý hồ sơ / Đăng xuất" as Profile
-  }
-
-  package "Film Lab và đặt dịch vụ" {
-    usecase "Tìm kiếm / Xem Film Lab" as BrowseLabs
-    usecase "Đặt dịch vụ Film Lab" as LabOrder
-    usecase "Theo dõi đơn Film Lab" as TrackLabOrder
-    usecase "Quản lý dịch vụ / Gói dịch vụ" as ManageLabCatalog
-    usecase "Xử lý đơn hàng Film Lab" as ProcessLabOrder
-  }
-
-  package "Marketplace" {
-    usecase "Tìm kiếm / Xem sản phẩm" as BrowseProducts
-    usecase "Quản lý sản phẩm đăng bán" as ManageListings
-    usecase "Mua sản phẩm / Theo dõi đơn" as MarketOrder
-    usecase "Yêu thích / Đánh giá sản phẩm" as ProductFeedback
-  }
-
-  package "Cộng đồng và sự kiện" {
-    usecase "Xem bài viết / Sự kiện" as BrowseCommunity
-    usecase "Đăng bài / Bình luận" as PublishPosts
-    usecase "Tạo sự kiện / Đăng ký tham gia" as Events
-  }
-
-  package "AI và quản lý ảnh" {
-    usecase "Nhận gợi ý / Tìm kiếm ngữ nghĩa" as Recommendations
-    usecase "Trao đổi với Chatbot" as Chatbot
-    usecase "Tải lên / Phân tích ảnh" as ImageAnalysis
-  }
-
-  package "Quản trị" {
-    usecase "Quản lý và giám sát hệ thống" as AdminManagement
-    usecase "Xem báo cáo vận hành" as Reports
-  }
-
-  usecase "Xử lý thanh toán" as PaymentProcessing
+  usecase "Đăng ký /\nđăng nhập" as Account
+  usecase "Tìm Film Lab /\nsản phẩm" as Browse
+  usecase "Đặt dịch vụ /\nmua hàng" as Order
+  usecase "Đăng bài /\ntham gia sự kiện" as Community
+  usecase "Sử dụng công cụ AI" as AI
+  usecase "Quản lý Film Lab /\nsản phẩm" as ManageBusiness
+  usecase "Quản trị hệ thống" as Administer
 }
 
-Guest --> Auth
-Guest --> BrowseLabs
-Guest --> BrowseProducts
-Guest --> BrowseCommunity
+Guest -right-> Account
+Guest -right-> Browse
 
-User --> Profile
-User --> BrowseLabs
-User --> BrowseProducts
-User --> BrowseCommunity
+Photographer -right-> Browse
+Photographer -right-> Order
+Photographer -right-> Community
+Photographer -right-> AI
 
-Photographer --> LabOrder
-Photographer --> TrackLabOrder
-Photographer --> MarketOrder
-Photographer --> ProductFeedback
-Photographer --> PublishPosts
-Photographer --> Events
-Photographer --> Recommendations
-Photographer --> Chatbot
-Photographer --> ImageAnalysis
-
-LabOwner --> ManageLabCatalog
-LabOwner --> ProcessLabOrder
-LabOwner --> Reports
-
-Seller --> ManageListings
-Seller --> MarketOrder
-
-Admin --> AdminManagement
-Admin --> Reports
-
-LabOrder ..> PaymentProcessing : <<include>>
-MarketOrder ..> PaymentProcessing : <<include>>
-Payment --> PaymentProcessing
-AIProvider ..> Recommendations
-AIProvider ..> Chatbot
-Storage ..> ImageAnalysis
-
-note bottom of AdminManagement
-  Một số chức năng quản trị nâng cao
-  có thể chưa được triển khai đầy đủ.
-end note
-
-note bottom of Recommendations
-  AI provider là tích hợp tùy chọn;
-  hệ thống có thể dùng xử lý dự phòng cục bộ.
-end note
+Business -right-> ManageBusiness
+Admin -right-> Administer
 
 @enduml

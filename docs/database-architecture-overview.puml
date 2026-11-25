@@ -1,0 +1,100 @@
+@startuml FilmLab_Database_Architecture
+title Mô hình dữ liệu tổng quan - Film Lab Ecosystem
+top to bottom direction
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam packageBorderStyle dashed
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ArrowColor #52616B
+skinparam PackageBorderColor #5684A8
+skinparam ComponentBorderColor #5684A8
+skinparam DatabaseBorderColor #D47A35
+
+package "Tầng trình bày (Next.js + React)" #EAF3FB {
+  component "Khách / Photographer\nFilm Lab, booking, Community,\nMarketplace, tải ảnh" as CustomerWeb
+  component "Lab Owner / Seller\nQuản lý dịch vụ, đơn hàng,\nsản phẩm và tin nhắn" as BusinessWeb
+  component "Admin\nQuản trị tài khoản, nội dung,\nsự kiện và báo cáo" as AdminWeb
+}
+
+component "Express REST API\nNode.js - routing, CORS,\nxác thực JWT" as API #EEE8F6
+
+package "Tầng nghiệp vụ (Modular Monolith)" #EAF5EC {
+  component "Tài khoản & hồ sơ\nJWT, Google/Facebook OAuth*" as Auth
+  component "Film Lab & đơn hàng\nDịch vụ, gói dịch vụ,\nvòng đời đơn hàng" as FilmLab
+  component "Marketplace\nSản phẩm, yêu thích,\nđơn hàng, đánh giá" as Marketplace
+  component "Community & sự kiện\nBài viết, bình luận, workshop,\nphotowalk, suất chiếu" as Community
+  component "AI & ảnh\nRAG, gợi ý,\ntải lên / phân tích ảnh" as AI
+  component "Admin & kiểm toán\nBáo cáo, kiểm duyệt,\naudit log" as Admin
+  component "Sequelize ORM\nTruy cập dữ liệu trong backend" as ORM
+}
+
+package "Tầng dữ liệu (một PostgreSQL database)" #FFF2E6 {
+  database "PostgreSQL\n1 database / 23 bảng" as PostgreSQL
+  package "Nhóm bảng logic trong cùng database" #FFF9F2 {
+    component "Tài khoản & nội dung\nusers, posts, comments,\nmessages, uploads, content_reports" as AccountData
+    component "Film Lab & đơn hàng\nfilm_labs, lab_services,\nlab_packages, orders, order_items,\ntransactions" as LabData
+    component "Marketplace\nproducts, favorites,\nmarketplace_orders, reviews" as MarketplaceData
+    component "Sự kiện & vé\nworkshops, photowalks,\nevent_registrations,\nfilm_screenings, ticket_reservations" as EventData
+    component "AI & quản trị\nrag_documents,\nadmin_audit_logs" as PlatformData
+  }
+}
+
+package "Tệp và dịch vụ ngoài (tùy cấu hình)" #FFF2E6 {
+  component "File Storage\nLocal disk / S3*\nẢnh không lưu trực tiếp trong DB" as FileStorage
+  component "Google / Facebook\nOAuth 2.0*" as OAuthProvider
+  component "Gemini API*" as Gemini
+  component "OpenAI API*\nEmbeddings / image review" as OpenAI
+  component "Stripe / Bank QR*\nPayment" as Payment
+  component "Elasticsearch\nCó trong Docker Compose,\nchưa kết nối luồng tìm kiếm" as Elasticsearch
+}
+
+CustomerWeb --> API : HTTPS / JSON / JWT
+BusinessWeb --> API : HTTPS / JSON / JWT
+AdminWeb --> API : HTTPS / JSON / JWT
+
+API --> Auth
+API --> FilmLab
+API --> Marketplace
+API --> Community
+API --> AI
+API --> Admin
+
+Auth --> ORM
+FilmLab --> ORM
+Marketplace --> ORM
+Community --> ORM
+AI --> ORM
+Admin --> ORM
+ORM --> PostgreSQL : SQL
+PostgreSQL --> AccountData
+PostgreSQL --> LabData
+PostgreSQL --> MarketplaceData
+PostgreSQL --> EventData
+PostgreSQL --> PlatformData
+
+AI --> FileStorage : Upload / retrieve
+Auth ..> OAuthProvider : OAuth redirect/callback*
+AI ..> Gemini : Chat generation*
+AI ..> OpenAI : Optional*
+FilmLab ..> Payment : Checkout / verify*
+
+note right of MarketplaceData
+  Các khối là nhóm bảng logic,
+  không phải database riêng.
+  FK / cardinality chi tiết xem ERD.
+end note
+
+note bottom of Elasticsearch
+  Backend hiện chưa dùng Elasticsearch
+  để lập chỉ mục hoặc truy vấn dữ liệu.
+end note
+
+legend bottom
+  * Tích hợp cần credentials trong environment.
+  Backend là modular monolith; hiện không có Kafka
+  hoặc các microservice độc lập.
+endlegend
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml Activity_Event_Registration
+title Biểu đồ hoạt động - Đăng ký workshop/photowalk
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người dùng|
+start
+:Chọn sự kiện và yêu cầu đăng ký;
+
+|Backend|
+:Xác thực người dùng;
+:Bắt đầu transaction và khóa bản ghi sự kiện;
+:Kiểm tra sự kiện đã publish;
+if (Sự kiện đang mở đăng ký?) then (Có)
+  :Kiểm tra người dùng đã đăng ký chưa;
+  if (Đã đăng ký?) then (Có)
+    :Kết thúc transaction;
+    |Người dùng|
+    :Thông báo đã có đăng ký;
+    stop
+  else (Không)
+    :Kiểm tra sức chứa còn chỗ;
+    if (Còn chỗ?) then (Có)
+      :Tạo đăng ký và cập nhật số chỗ;
+      :Commit transaction;
+      |Người dùng|
+      :Hiển thị xác nhận đăng ký;
+      stop
+    else (Không)
+      :Rollback transaction;
+      |Người dùng|
+      :Thông báo sự kiện đã đủ chỗ;
+      stop
+    endif
+  endif
+else (Không)
+  :Kết thúc transaction;
+  |Người dùng|
+  :Thông báo sự kiện chưa mở đăng ký;
+  stop
+endif
+@enduml

@@ -291,6 +291,23 @@ router.post('/:id/edit', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/public/:id/file', async (req, res) => {
+  try {
+    const record = await Upload.findOne({ where: { id: req.params.id, shared: true } });
+    if (!record) return res.status(404).json({ error: 'Image not found' });
+    if (record.metadata?.provider === 's3') {
+      const signedUrl = getSignedReadUrl(record.metadata.key);
+      if (!signedUrl) return res.status(503).json({ error: 'Image storage is unavailable' });
+      return res.redirect(302, signedUrl);
+    }
+    const filePath = path.join(uploadDir, path.basename(record.filename));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Image file not found' });
+    return res.sendFile(filePath);
+  } catch (error) {
+    return res.status(500).json({ error: 'Unable to retrieve image' });
+  }
+});
+
 router.get('/:id/file', authenticateToken, async (req, res) => {
   try {
     const record = await Upload.findOne({ where: { id: req.params.id, userId: req.user.id } });

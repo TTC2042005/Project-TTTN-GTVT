@@ -1,0 +1,102 @@
+@startuml Activity_Authentication
+title Biểu đồ hoạt động - Xác thực và bảo mật tài khoản
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người dùng|
+start
+:Chọn đăng ký hoặc đăng nhập;
+if (Đăng ký?) then (Có)
+  :Nhập tên, email, mật khẩu và vai trò;
+  |Backend|
+  :Kiểm tra dữ liệu bắt buộc và kiểu dữ liệu;
+  if (Dữ liệu hợp lệ?) then (Có)
+    :Kiểm tra vai trò được phép (chặn đăng ký vai trò admin);
+    if (Vai trò hợp lệ?) then (Có)
+      :Chuẩn hóa email;
+      :Kiểm tra email đã tồn tại;
+      if (Email đã được sử dụng?) then (Có)
+        |Người dùng|
+        :Nhận lỗi email đã tồn tại;
+        stop
+      else (Không)
+        :Băm mật khẩu bằng bcrypt\nvới cost factor 12;
+        :Tạo tài khoản;
+      endif
+    else (Không)
+      |Người dùng|
+      :Nhận lỗi vai trò không hợp lệ;
+      stop
+    endif
+  else (Không)
+    |Người dùng|
+    :Nhận lỗi dữ liệu đầu vào;
+    stop
+  endif
+else (Đăng nhập)
+  :Nhập email và mật khẩu;
+  |Backend|
+  :Chuẩn hóa email và tìm tài khoản;
+  if (Tìm thấy tài khoản?) then (Có)
+    :So sánh mật khẩu với hash đã lưu;
+    if (Mật khẩu chính xác?) then (Có)
+    else (Không)
+      |Người dùng|
+      :Nhận lỗi thông tin đăng nhập không hợp lệ;
+      stop
+    endif
+  else (Không)
+    |Người dùng|
+    :Nhận lỗi thông tin đăng nhập không hợp lệ;
+    stop
+  endif
+endif
+
+|Backend|
+:Ký JWT bằng JWT_SECRET,\nthời hạn 7 ngày;
+:Trả JWT và thông tin tài khoản;
+|Giao diện|
+:Lưu JWT và thông tin người dùng\ntrong localStorage;
+
+|Người dùng|
+:Gửi yêu cầu tới API cần đăng nhập;
+|Backend|
+:Xác minh chữ ký và thời hạn JWT;
+if (JWT hợp lệ?) then (Có)
+  :Đọc tài khoản và vai trò hiện tại từ cơ sở dữ liệu;
+  if (Tài khoản còn tồn tại?) then (Có)
+    :Kiểm tra quyền theo vai trò;
+    if (Được phép truy cập?) then (Có)
+      :Cho phép thực hiện yêu cầu;
+    else (Không)
+      :Từ chối truy cập với lỗi 403;
+    endif
+  else (Không)
+    :Từ chối yêu cầu với lỗi 401;
+  endif
+else (Không)
+  :Từ chối yêu cầu với lỗi 403;
+endif
+
+|Người dùng|
+if (Người dùng đăng xuất?) then (Có)
+  |Giao diện|
+  :Xóa JWT và thông tin người dùng\nkhỏi localStorage;
+else (Không)
+  :Tiếp tục phiên đăng nhập;
+endif
+stop
+
+legend bottom
+  Đang có: bcrypt, JWT hết hạn sau 7 ngày,
+  xác minh JWT, kiểm tra tài khoản/vai trò ở backend.
+  Chưa có: chính sách độ mạnh mật khẩu, MFA,
+  giới hạn thử đăng nhập/khóa tài khoản;
+  quên mật khẩu hiện là placeholder.
+  JWT lưu trong localStorage; đăng xuất chỉ xóa token phía trình duyệt.
+endlegend
+@enduml

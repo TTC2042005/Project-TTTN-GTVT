@@ -1,0 +1,49 @@
+@startuml Activity_Marketplace_Purchase
+title Biểu đồ hoạt động - Mua hàng Marketplace
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Người mua|
+start
+:Tìm và chọn sản phẩm;
+:Chọn số lượng và đặt mua;
+
+|Backend|
+:Kiểm tra sản phẩm, số lượng và tồn kho;
+if (Sản phẩm còn đủ hàng?) then (Có)
+  :Tính tổng tiền;
+  :Trong một transaction, tạo đơn\nvà giảm tồn kho;
+else (Không)
+  |Người mua|
+  :Thông báo sản phẩm không đủ tồn kho;
+  stop
+endif
+
+|Người mua|
+:Chọn cách thanh toán;
+if (Gửi minh chứng Bank QR?) then (Có)
+  :Chuyển khoản và tải minh chứng lên;
+  |Backend|
+  :Lưu minh chứng và liên kết với đơn;
+  |Quản trị viên|
+  :Xác minh minh chứng;
+  if (Minh chứng hợp lệ?) then (Có)
+    |Backend|
+    :Cập nhật trạng thái thanh toán;
+  else (Không)
+    |Backend|
+    :Từ chối minh chứng và giữ đơn chờ thanh toán;
+  endif
+else (Chưa gửi)
+  |Backend|
+  :Giữ đơn ở trạng thái chờ thanh toán;
+endif
+
+|Người mua|
+:Theo dõi đơn hàng;
+stop
+@enduml

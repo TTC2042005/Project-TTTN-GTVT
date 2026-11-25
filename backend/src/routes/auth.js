@@ -1,12 +1,118 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const dotenv = require('dotenv');
 const { User } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
+const { buildAuthorizationUrl, getProviderProfile } = require('../services/oauthService');
 
 dotenv.config();
 const router = express.Router();
+
+function getSafeReturnTo(value) {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) {
+    return null;
+  }
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  try {
+    const target = new URL(value, frontendUrl);
+    return target.origin === new URL(frontendUrl).origin ? `${target.pathname}${target.search}${target.hash}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function getFrontendUrl() {
+  return new URL(process.env.FRONTEND_URL || 'http://localhost:3000');
+}
+
+function setOAuthStateCookie(res, provider, value) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `oauth_${provider}_state=${encodeURIComponent(value)}; Max-Age=600; Path=/api/auth; HttpOnly; SameSite=Lax${secure}`);
+}
+
+function clearOAuthStateCookie(res, provider) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `oauth_${provider}_state=; Max-Age=0; Path=/api/auth; HttpOnly; SameSite=Lax${secure}`);
+}
+
+function readCookie(req, name) {
+  const cookies = req.headers.cookie || '';
+  const entry = cookies.split(';').map((cookie) => cookie.trim()).find((cookie) => cookie.startsWith(`${name}=`));
+  return entry ? decodeURIComponent(entry.slice(name.length + 1)) : null;
+}
+
+function redirectToLogin(res, error) {
+  const target = new URL('/login', getFrontendUrl());
+  if (error) target.searchParams.set('oauthError', error);
+  return res.redirect(target.toString());
+}
+
+function redirectWithLoginToken(res, token, returnTo) {
+  const target = new URL('/login', getFrontendUrl());
+  target.hash = new URLSearchParams({ oauth_token: token, returnTo: returnTo || '' }).toString();
+  return res.redirect(target.toString());
+}
+
+function startOAuth(provider) {
+  return (req, res) => {
+    try {
+      if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not configured');
+      const nonce = crypto.randomBytes(32).toString('hex');
+      const returnTo = getSafeReturnTo(req.query.returnTo);
+      const signedState = jwt.sign({ nonce, returnTo }, process.env.JWT_SECRET, { expiresIn: '10m' });
+      setOAuthStateCookie(res, provider, signedState);
+      return res.redirect(buildAuthorizationUrl(provider, nonce));
+    } catch (error) {
+      return redirectToLogin(res, error.message.includes('not configured') ? `${provider}_not_configured` : 'oauth_failed');
+    }
+  };
+}
+
+function finishOAuth(provider) {
+  return async (req, res) => {
+    clearOAuthStateCookie(res, provider);
+    try {
+      if (req.query.error) return redirectToLogin(res, 'oauth_cancelled');
+      const stateCookie = readCookie(req, `oauth_${provider}_state`);
+      const state = req.query.state;
+      const code = req.query.code;
+      if (!stateCookie || typeof state !== 'string' || typeof code !== 'string') {
+        return redirectToLogin(res, 'oauth_state_invalid');
+      }
+
+      const statePayload = jwt.verify(stateCookie, process.env.JWT_SECRET);
+      if (statePayload.nonce !== state) return redirectToLogin(res, 'oauth_state_invalid');
+      const profile = await getProviderProfile(provider, code);
+      const providerIdField = provider === 'google' ? 'googleId' : 'facebookId';
+      let user = await User.findOne({ where: { [providerIdField]: profile.id } });
+      if (!user) {
+        const existingEmail = await User.findOne({ where: { email: profile.email } });
+        if (existingEmail) return redirectToLogin(res, 'oauth_account_exists');
+        const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+        user = await User.create({
+          email: profile.email,
+          name: profile.name,
+          avatarUrl: profile.avatarUrl,
+          passwordHash,
+          [providerIdField]: profile.id,
+        });
+      }
+
+      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const requestedPath = statePayload.returnTo || (user.role === 'admin' ? '/admin' : '/');
+      return redirectWithLoginToken(res, token, requestedPath);
+    } catch {
+      return redirectToLogin(res, 'oauth_failed');
+    }
+  };
+}
+
+router.get('/google', startOAuth('google'));
+router.get('/google/callback', finishOAuth('google'));
+router.get('/facebook', startOAuth('facebook'));
+router.get('/facebook/callback', finishOAuth('facebook'));
 
 router.post('/register', async (req, res) => {
   try {

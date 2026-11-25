@@ -15,6 +15,10 @@ The system is composed of four major domains:
 
 ## Component Diagram
 
+Sơ đồ component tổng quan có thể mở bằng PlantUML: [architecture-overview.puml](./architecture-overview.puml). Sơ đồ dữ liệu theo tầng: [database-architecture-overview.puml](./database-architecture-overview.puml); ERD chi tiết: [07-erd-database.puml](./uml-usecases/07-erd-database.puml).
+
+Sơ đồ riêng cho Backend: [backend-architecture.puml](./backend-architecture.puml) mô tả các module và tích hợp; [backend-request-flow.puml](./backend-request-flow.puml) mô tả luồng xử lý API có xác thực.
+
 - **Frontend (Next.js)**
   - Public marketing pages
   - Customer dashboard
@@ -27,10 +31,10 @@ The system is composed of four major domains:
   - Marketplace service
   - Community service
   - AI service
-- **Database**
-  - PostgreSQL for transactional data
-  - Elasticsearch for search indexes
-  - Blob storage for scanned images / print assets
+- **Data and file storage**
+  - PostgreSQL/Sequelize for transactional and application data
+  - Local disk or S3-compatible storage for image files
+  - Elasticsearch exists in Docker Compose but is not connected to application search
 - **AI services**
   - Google Gemini API for chatbot/RAG response generation
   - OpenAI embeddings for optional RAG document ranking and semantic-search prototype
@@ -59,7 +63,7 @@ The system is composed of four major domains:
 ## Security
 
 - JWT-based auth for API access.
-- OAuth 2.0 integration planned for social login.
+- Google and Facebook OAuth 2.0 authorization-code sign-in is implemented when provider credentials and callback URLs are configured. Existing email accounts are not automatically linked.
 - Role-based access control for photographers, lab owners, admins, and moderators.
 - Secure storage of sensitive data in environment variables.
 
@@ -71,7 +75,7 @@ The system is composed of four major domains:
 
 ## Implementation boundary (reviewed 2026-11-23)
 
-The component list above describes the intended architecture, not proof that every provider is connected. The current repository implements PostgreSQL/Sequelize, Express REST routes, a Next.js UI, local/S3-compatible upload code, JWT, heuristic recommendation/image metrics, and in-process realtime events. Elasticsearch is started by Docker Compose but is not yet wired into the application search/indexing path. The chatbot can use Gemini for generation; retrieval uses local project data and knowledge documents, with optional OpenAI embeddings and in-process cosine scoring rather than a production vector index. OAuth, production email, signed private media URLs, CI/CD, centralized observability, and tested cloud deployment remain planned work.
+The component list above describes the intended architecture, not proof that every provider is connected. The current repository implements PostgreSQL/Sequelize, Express REST routes, a Next.js UI, local/S3-compatible upload code, JWT, heuristic recommendation/image metrics, and in-process realtime events. Elasticsearch is started by Docker Compose but is not yet wired into the application search/indexing path. The chatbot can use Gemini for generation; retrieval uses local project data and knowledge documents, with optional OpenAI embeddings and in-process cosine scoring rather than a production vector index. Production email, signed private media URLs, CI/CD, centralized observability, and tested cloud deployment remain planned work.
 
 ### Order and payment trust boundaries
 

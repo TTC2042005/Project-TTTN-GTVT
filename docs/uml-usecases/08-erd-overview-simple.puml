@@ -1,0 +1,183 @@
+@startuml FilmLab_Ecosystem_ERD_Simple
+title ERD tổng quát đơn giản - Film Lab Ecosystem
+left to right direction
+hide circle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 35
+skinparam packageStyle rectangle
+skinparam entity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  FontColor #24343A
+}
+
+package "Tài khoản và nội dung" {
+  entity "users" as users {
+    * id : UUID <<PK>>
+  }
+  entity "posts" as posts {
+    * id : UUID <<PK>>
+    author_id : UUID <<FK>>
+  }
+  entity "comments" as comments {
+    * id : UUID <<PK>>
+    post_id : UUID <<FK>>
+    author_id : UUID <<FK>>
+  }
+  entity "messages" as messages {
+    * id : UUID <<PK>>
+    sender_id : UUID <<FK>>
+    recipient_id : UUID <<FK>>
+  }
+  entity "uploads" as uploads {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+  }
+  entity "content_reports" as content_reports {
+    * id : UUID <<PK>>
+    reporter_id : UUID <<FK>>
+  }
+  entity "admin_audit_logs" as admin_audit_logs {
+    * id : UUID <<PK>>
+    actor_id : UUID <<FK>>
+  }
+}
+
+package "Film Lab và đơn hàng" {
+  entity "film_labs" as film_labs {
+    * id : UUID <<PK>>
+    owner_id : UUID <<FK>>
+  }
+  entity "lab_services" as lab_services {
+    * id : UUID <<PK>>
+    lab_id : UUID <<FK>>
+  }
+  entity "lab_packages" as lab_packages {
+    * id : UUID <<PK>>
+    lab_id : UUID <<FK>>
+  }
+  entity "orders" as orders {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    lab_id : UUID <<FK>>
+  }
+  entity "order_items" as order_items {
+    * id : UUID <<PK>>
+    order_id : UUID <<FK>>
+  }
+  entity "transactions" as transactions {
+    * id : UUID <<PK>>
+    order_id : UUID <<FK, nullable>>
+    verified_by : UUID <<FK, nullable>>
+  }
+}
+
+package "Marketplace" {
+  entity "products" as products {
+    * id : UUID <<PK>>
+    seller_id : UUID <<FK>>
+  }
+  entity "favorites" as favorites {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+  }
+  entity "marketplace_orders" as marketplace_orders {
+    * id : UUID <<PK>>
+    buyer_id : UUID <<FK>>
+    seller_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+    proof_upload_id : UUID <<FK, nullable>>
+  }
+  entity "reviews" as reviews {
+    * id : UUID <<PK>>
+    author_id : UUID <<FK>>
+  }
+}
+
+package "Sự kiện, ảnh và AI" {
+  entity "workshops" as workshops {
+    * id : UUID <<PK>>
+    organizer_id : UUID <<FK>>
+  }
+  entity "photowalks" as photowalks {
+    * id : UUID <<PK>>
+    organizer_id : UUID <<FK>>
+  }
+  entity "event_registrations" as event_registrations {
+    * id : UUID <<PK>>
+    user_id : UUID <<FK>>
+  }
+  entity "film_screenings" as film_screenings {
+    * id : UUID <<PK>>
+  }
+  entity "ticket_reservations" as ticket_reservations {
+    * id : UUID <<PK>>
+    screening_id : UUID <<FK>>
+    user_id : UUID <<FK>>
+  }
+  entity "rag_documents" as rag_documents {
+    * id : UUID <<PK>>
+  }
+}
+
+users ||--o{ posts
+users ||--o{ comments
+posts ||--o{ comments
+users ||--o{ messages : sender
+users ||--o{ messages : recipient
+users ||--o{ uploads
+users ||--o{ content_reports
+users ||--o{ admin_audit_logs
+
+users ||--o{ film_labs
+film_labs ||--o{ lab_services
+film_labs ||--o{ lab_packages
+users ||--o{ orders
+film_labs ||--o{ orders
+orders ||--o{ order_items
+orders o|--o{ transactions
+users o|--o{ transactions : verifier
+
+users ||--o{ products
+users ||--o{ favorites
+products ||--o{ favorites
+users ||--o{ marketplace_orders : buyer
+users ||--o{ marketplace_orders : seller
+products ||--o{ marketplace_orders
+uploads o|--o{ marketplace_orders : payment proof
+users ||--o{ reviews
+
+users ||--o{ workshops
+users ||--o{ photowalks
+users ||--o{ event_registrations
+film_screenings ||--o{ ticket_reservations
+users ||--o{ ticket_reservations
+
+note bottom of order_items
+  order_items.item_id tham chiếu service hoặc package,
+  nhưng không có FK trực tiếp.
+end note
+
+note bottom of event_registrations
+  event_type + event_id tham chiếu workshop hoặc photowalk,
+  nhưng không có FK trực tiếp.
+end note
+
+note bottom of reviews
+  target_type + target_id là tham chiếu đa hình,
+  không có FK trực tiếp.
+end note
+
+note bottom of content_reports
+  target_type + target_id là tham chiếu đa hình,
+  không có FK trực tiếp.
+end note
+
+note bottom of posts
+  image_urls lưu URL ảnh, không phải FK tới uploads.
+end note
+
+@enduml

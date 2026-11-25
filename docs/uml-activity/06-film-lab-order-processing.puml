@@ -1,0 +1,38 @@
+@startuml Activity_FilmLab_Order_Processing
+title Biểu đồ hoạt động - Xử lý đơn hàng Film Lab
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+|Lab Owner|
+start
+:Mở hàng đợi đơn hàng của lab;
+
+|Backend|
+:Kiểm tra quyền sở hữu lab;
+if (Có quyền xử lý đơn?) then (Có)
+  :Hiển thị các đơn liên quan;
+else (Không)
+  |Lab Owner|
+  :Thông báo không có quyền truy cập;
+  stop
+endif
+
+|Lab Owner|
+:Chọn đơn và trạng thái tiếp theo;
+|Backend|
+:Kiểm tra chuyển trạng thái hợp lệ;
+if (Chuyển trạng thái hợp lệ?) then (Có)
+  :Lưu trạng thái đơn;
+  :Phát sự kiện cập nhật trạng thái;
+  |Lab Owner|
+  :Nhận xác nhận cập nhật;
+else (Không)
+  |Lab Owner|
+  :Hiển thị lỗi chuyển trạng thái;
+endif
+stop
+@enduml

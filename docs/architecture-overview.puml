@@ -1,0 +1,37 @@
+@startuml FilmLab_System_Architecture
+title Kiến trúc tổng thể - Film Lab Ecosystem
+top to bottom direction
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ArrowColor #52616B
+skinparam ComponentBorderColor #577590
+skinparam DatabaseBorderColor #D47A35
+
+actor "Người dùng\nPhotographer / Lab Owner /\nSeller / Admin" as User
+
+rectangle "Frontend\nNext.js + React" as Frontend
+
+rectangle "Backend API\nNode.js + Express\nModular Monolith\n\nAuth · Film Lab · Orders\nMarketplace · Community · AI · Admin" as Backend
+
+database "Cơ sở dữ liệu\nPostgreSQL + Sequelize" as Database
+
+rectangle "Lưu trữ ảnh / tệp\nLocal disk hoặc S3*" as Storage
+
+cloud "Dịch vụ ngoài (tùy cấu hình)\nGoogle / Facebook OAuth\nGemini / OpenAI\nStripe / Bank QR" as External
+
+User --> Frontend : HTTPS
+Frontend --> Backend : REST / JSON\nJWT
+Backend --> Database : SQL
+Backend --> Storage : Upload / retrieve
+Backend ..> External : API / OAuth*
+
+legend bottom
+  * Tích hợp ngoài cần credentials cấu hình.
+  Backend là một ứng dụng modular monolith,
+  không phải các microservice riêng.
+endlegend
+
+@enduml

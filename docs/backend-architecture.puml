@@ -1,0 +1,59 @@
+@startuml Backend_Architecture
+title Kiến trúc chi tiết Backend - Film Lab Ecosystem
+left to right direction
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ArrowColor #52616B
+
+component "Frontend\nNext.js" as Frontend
+
+package "Backend process\nNode.js + Express (Modular Monolith)" {
+  component "Express app\nsrc/index.js\nCORS, JSON, gắn route" as App
+
+  component "REST routes\nsrc/routes/*.js\nTài khoản, Film Lab, Orders,\nMarketplace, Community,\nEvents, AI, Admin, ..." as Routes
+
+  component "Middleware\nXác thực JWT\nPhân quyền theo vai trò" as Auth
+
+  component "Services\nOAuth, thanh toán, AI,\nlưu trữ tệp, kiểm toán" as Services
+
+  component "Sequelize models\nsrc/models/*.js" as Models
+  component "Realtime service\nWebSocket trên HTTP server" as Realtime
+}
+
+database "PostgreSQL" as DB
+component "Lưu trữ tệp\nLocal disk / S3*" as Storage
+cloud "Google / Facebook\nOAuth*" as OAuthProvider
+cloud "Stripe*" as Stripe
+cloud "OpenAI / Gemini*" as AIProvider
+
+Frontend --> App : REST / JSON\nBearer JWT
+App --> Routes : /api/*
+Routes ..> Auth : Route có xác thực
+Routes --> Services : Dùng helper nghiệp vụ
+Routes --> Models : Đọc / ghi dữ liệu
+Auth --> Models : Tải user / role hiện tại
+Services --> Models : Truy cập dữ liệu khi cần
+Models --> DB : SQL qua Sequelize
+
+Services --> Storage : Upload / đọc tệp
+Services ..> OAuthProvider : OAuth redirect / callback
+Services ..> Stripe : Checkout / thanh toán
+Routes ..> AIProvider : Chat / phân tích ảnh
+App --> Realtime : Khởi tạo cùng HTTP server
+Frontend <--> Realtime : WebSocket
+Services --> Realtime : Phát sự kiện cập nhật
+
+note bottom of Services
+  Dịch vụ ngoài phụ thuộc cấu hình môi trường.
+  Bank QR là quy trình thanh toán thủ công.
+end note
+
+legend bottom
+  Backend là một ứng dụng Express duy nhất,
+  được chia module theo nghiệp vụ, không phải microservice.
+endlegend
+
+@enduml

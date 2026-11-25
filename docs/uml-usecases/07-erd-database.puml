@@ -1,73 +1,38 @@
 @startuml FilmLab_Ecosystem_ERD
-' ERD for Chapter 3.2, based on backend/db/schema.sql
+title ERD tổng quát - Film Lab Ecosystem
 left to right direction
 hide circle
 skinparam shadowing false
 skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam packageStyle rectangle
 skinparam entity {
   BackgroundColor #F4F7F5
   BorderColor #2D6B65
   FontColor #24343A
 }
-skinparam packageStyle rectangle
 skinparam note {
   BackgroundColor #FFF8E8
   BorderColor #C8953D
   FontColor #24343A
 }
 
-package "Tai khoan va noi dung" {
-  entity "users" as users {
-    * id : UUID <<PK>>
-    --
-    email : TEXT <<UNIQUE>>
-    password_hash : TEXT
-    name : TEXT
-    role : user_role_enum
-    avatar_url : TEXT
-    phone : TEXT
-  }
-
-  entity "posts" as posts {
-    * id : UUID <<PK>>
-    --
-    author_id : UUID <<FK>>
-    title : TEXT
-    body : TEXT
-    tags : TEXT[]
-    visibility : post_visibility_enum
-    published_at : TIMESTAMPTZ
-  }
-
-  entity "comments" as comments {
-    * id : UUID <<PK>>
-    --
-    post_id : UUID <<FK>>
-    author_id : UUID <<FK>>
-    content : TEXT
-  }
-
-  entity "messages" as messages {
-    * id : UUID <<PK>>
-    --
-    sender_id : UUID <<FK>>
-    recipient_id : UUID <<FK>>
-    content : TEXT
-    sent_at : TIMESTAMPTZ
-    read : BOOLEAN
-  }
+entity "users" as users {
+  * id : UUID <<PK>>
+  --
+  email : TEXT <<UNIQUE>>
+  role : user_role_enum
+  google_id : TEXT (optional)
+  facebook_id : TEXT (optional)
 }
 
-package "Film Lab va don dich vu" {
+package "Film Lab và đơn hàng" {
   entity "film_labs" as film_labs {
     * id : UUID <<PK>>
     --
     owner_id : UUID <<FK>>
     name : TEXT
-    address : TEXT
-    city : TEXT
-    country : TEXT
-    rating : REAL
   }
 
   entity "lab_services" as lab_services {
@@ -75,9 +40,7 @@ package "Film Lab va don dich vu" {
     --
     lab_id : UUID <<FK>>
     name : TEXT
-    service_type : TEXT
     price : REAL
-    duration_minutes : INTEGER
   }
 
   entity "lab_packages" as lab_packages {
@@ -86,7 +49,6 @@ package "Film Lab va don dich vu" {
     lab_id : UUID <<FK>>
     title : TEXT
     price : REAL
-    description : TEXT
   }
 
   entity "orders" as orders {
@@ -96,9 +58,6 @@ package "Film Lab va don dich vu" {
     lab_id : UUID <<FK>>
     status : order_status_enum
     total_price : REAL
-    requested_at : TIMESTAMPTZ
-    due_date : TIMESTAMPTZ
-    tracking_code : TEXT
   }
 
   entity "order_items" as order_items {
@@ -108,18 +67,15 @@ package "Film Lab va don dich vu" {
     item_type : TEXT
     item_id : UUID
     quantity : INTEGER
-    unit_price : REAL
   }
 
   entity "transactions" as transactions {
     * id : UUID <<PK>>
     --
     order_id : UUID <<FK, nullable>>
+    verified_by : UUID <<FK, nullable>>
     amount : REAL
-    currency : TEXT
-    payment_method : TEXT
     status : transaction_status_enum
-    provider_reference : TEXT
   }
 }
 
@@ -129,8 +85,6 @@ package "Marketplace" {
     --
     seller_id : UUID <<FK>>
     title : TEXT
-    category : TEXT
-    condition : TEXT
     price : REAL
     stock : INTEGER
   }
@@ -148,10 +102,8 @@ package "Marketplace" {
     buyer_id : UUID <<FK>>
     seller_id : UUID <<FK>>
     product_id : UUID <<FK>>
-    quantity : INTEGER
-    total_price : REAL
-    status : marketplace_order_status_enum
     proof_upload_id : UUID <<FK, nullable>>
+    status : marketplace_order_status_enum
   }
 
   entity "reviews" as reviews {
@@ -160,20 +112,53 @@ package "Marketplace" {
     author_id : UUID <<FK>>
     target_type : TEXT
     target_id : UUID
-    rating : INTEGER <<CHECK 1..5>>
-    review_text : TEXT
+    rating : INTEGER
   }
 }
 
-package "Su kien, tep va AI" {
+package "Community và nội dung" {
+  entity "posts" as posts {
+    * id : UUID <<PK>>
+    --
+    author_id : UUID <<FK>>
+    title : TEXT
+    image_urls : TEXT[]
+    visibility : post_visibility_enum
+  }
+
+  entity "comments" as comments {
+    * id : UUID <<PK>>
+    --
+    post_id : UUID <<FK>>
+    author_id : UUID <<FK>>
+    content : TEXT
+  }
+
+  entity "messages" as messages {
+    * id : UUID <<PK>>
+    --
+    sender_id : UUID <<FK>>
+    recipient_id : UUID <<FK>>
+    content : TEXT
+  }
+
+  entity "content_reports" as content_reports {
+    * id : UUID <<PK>>
+    --
+    reporter_id : UUID <<FK>>
+    target_type : content_report_target_enum
+    target_id : UUID
+    status : content_report_status_enum
+  }
+}
+
+package "Sự kiện và ảnh" {
   entity "workshops" as workshops {
     * id : UUID <<PK>>
     --
     organizer_id : UUID <<FK>>
     title : TEXT
     event_date : TIMESTAMPTZ
-    capacity : INTEGER
-    published_at : TIMESTAMPTZ
   }
 
   entity "photowalks" as photowalks {
@@ -182,8 +167,6 @@ package "Su kien, tep va AI" {
     organizer_id : UUID <<FK>>
     title : TEXT
     event_date : TIMESTAMPTZ
-    capacity : INTEGER
-    published_at : TIMESTAMPTZ
   }
 
   entity "event_registrations" as event_registrations {
@@ -192,7 +175,23 @@ package "Su kien, tep va AI" {
     user_id : UUID <<FK>>
     event_type : event_registration_type_enum
     event_id : UUID
-    status : event_registration_status_enum
+  }
+
+  entity "film_screenings" as film_screenings {
+    * id : UUID <<PK>>
+    --
+    film_title : TEXT
+    event_date : TIMESTAMPTZ
+    capacity : INTEGER
+  }
+
+  entity "ticket_reservations" as ticket_reservations {
+    * id : UUID <<PK>>
+    --
+    screening_id : UUID <<FK>>
+    user_id : UUID <<FK>>
+    quantity : INTEGER
+    status : ticket_reservation_status_enum
   }
 
   entity "uploads" as uploads {
@@ -200,21 +199,28 @@ package "Su kien, tep va AI" {
     --
     user_id : UUID <<FK>>
     filename : TEXT
-    mime_type : TEXT
-    size : INTEGER
     url : TEXT
-    quality : JSONB
-    shared : BOOLEAN
+    metadata : JSONB
   }
+}
 
+package "AI và quản trị" {
   entity "rag_documents" as rag_documents {
     * id : UUID <<PK>>
     --
     source : TEXT
-    title : TEXT
     content : TEXT
     metadata : JSONB
     embedding : JSONB
+  }
+
+  entity "admin_audit_logs" as admin_audit_logs {
+    * id : UUID <<PK>>
+    --
+    actor_id : UUID <<FK>>
+    action : TEXT
+    entity_type : TEXT
+    details : JSONB
   }
 }
 
@@ -224,43 +230,60 @@ film_labs "1" -- "0..*" lab_packages : offers
 users "1" -- "0..*" orders : places
 film_labs "1" -- "0..*" orders : receives
 orders "1" -- "0..*" order_items : contains
-orders "0..1" -- "0..*" transactions : has
+orders "0..1" -- "0..*" transactions : paid by
+users "0..1" -- "0..*" transactions : verifies
+
 users "1" -- "0..*" products : sells
 users "1" -- "0..*" favorites : saves
-products "1" -- "0..*" favorites : is_saved_in
+products "1" -- "0..*" favorites : favorited
 users "1" -- "0..*" marketplace_orders : buys
 users "1" -- "0..*" marketplace_orders : sells
-products "1" -- "0..*" marketplace_orders : ordered_as
+products "1" -- "0..*" marketplace_orders : ordered
+uploads "0..1" -- "0..*" marketplace_orders : payment proof
 users "1" -- "0..*" reviews : writes
+
 users "1" -- "0..*" posts : authors
 posts "1" -- "0..*" comments : has
 users "1" -- "0..*" comments : writes
 users "1" -- "0..*" messages : sends
 users "1" -- "0..*" messages : receives
+users "1" -- "0..*" content_reports : reports
+
 users "1" -- "0..*" workshops : organizes
 users "1" -- "0..*" photowalks : organizes
 users "1" -- "0..*" event_registrations : registers
+film_screenings "1" -- "0..*" ticket_reservations : has
+users "1" -- "0..*" ticket_reservations : reserves
 users "1" -- "0..*" uploads : owns
-uploads "0..1" -- "0..*" marketplace_orders : payment_proof
+users "1" -- "0..*" admin_audit_logs : performs
 
-note right of order_items
-  item_type + item_id tham chieu den service hoac package.
-  item_id khong co FK truc tiep trong schema.
+note bottom of order_items
+  item_type + item_id trỏ tới service hoặc package,
+  nhưng item_id không có FK trực tiếp.
 end note
 
-note right of reviews
-  target_type + target_id la quan he da hinh.
-  target_id khong co FK truc tiep den lab/product.
+note bottom of event_registrations
+  event_type + event_id trỏ tới workshop hoặc photowalk,
+  nhưng event_id không có FK trực tiếp.
 end note
 
-note right of event_registrations
-  event_type + event_id la quan he da hinh den workshop
-  hoac photowalk. event_id khong khai bao FK trong schema.
+note bottom of posts
+  image_urls lưu URL ảnh, không phải FK tới uploads.
+end note
+
+note bottom of reviews
+  target_type + target_id là quan hệ đa hình,
+  không có FK trực tiếp tới đối tượng được đánh giá.
+end note
+
+note bottom of content_reports
+  target_type + target_id là quan hệ đa hình,
+  không có FK trực tiếp tới nội dung bị báo cáo.
 end note
 
 note bottom of rag_documents
-  Embedding va metadata duoc luu dang JSONB;
-  bang nay chua co FK den cac bang nghiep vu.
+  RAG documents không có FK tới bảng nghiệp vụ.
+  Ảnh được lưu ở local/S3; DB chỉ giữ metadata và URL.
 end note
 
 @enduml

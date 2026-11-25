@@ -17,6 +17,18 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    googleId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+      field: 'google_id',
+    },
+    facebookId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+      field: 'facebook_id',
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,

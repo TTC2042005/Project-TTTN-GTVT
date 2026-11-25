@@ -1,0 +1,52 @@
+@startuml Checkout_Payment_UseCase
+title Use Case - Checkout và thanh toán
+left to right direction
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam linetype ortho
+skinparam usecase {
+  BackgroundColor #F4F7F5
+  BorderColor #2D6B65
+  ArrowColor #33464B
+}
+
+actor "Người mua" as Buyer
+actor "Stripe" as Stripe
+actor "Quản trị viên" as Admin
+
+rectangle "Film Lab Ecosystem" {
+  usecase "Checkout và thanh toán\nđơn hàng" as Checkout
+  usecase "Kiểm tra thông tin đơn,\ngiá và tồn kho" as ValidateOrder
+  usecase "Tính tổng tiền" as CalculateTotal
+  usecase "Tạo đơn hàng\n(cập nhật tồn kho nếu Marketplace)" as CreateOrder
+  usecase "Thanh toán Stripe\n(chỉ đơn Film Lab)" as StripePayment
+  usecase "Thanh toán Bank QR\nvà gửi minh chứng" as BankQR
+  usecase "Gửi minh chứng\nthanh toán" as SubmitProof
+  usecase "Xác minh minh chứng\nthanh toán" as VerifyProof
+}
+
+Buyer --> Checkout
+Stripe --> StripePayment
+Admin --> VerifyProof
+
+Checkout ..> ValidateOrder : <<include>>
+Checkout ..> CalculateTotal : <<include>>
+Checkout ..> CreateOrder : <<include>>
+
+StripePayment ..> Checkout : <<extend>>\n[Film Lab, chọn Stripe]
+BankQR ..> Checkout : <<extend>>\n[Chọn Bank QR]
+BankQR ..> SubmitProof : <<include>>
+VerifyProof ..> SubmitProof : <<extend>>\n[Chờ quản trị viên xác minh]
+
+note right of StripePayment
+  Stripe chỉ được tích hợp
+  trong luồng đơn Film Lab.
+end note
+
+note bottom of VerifyProof
+  Bank QR áp dụng cho đơn Film Lab
+  hoặc Marketplace. Quản trị viên xác minh
+  minh chứng trước khi cập nhật trạng thái.
+end note
+
+@enduml
